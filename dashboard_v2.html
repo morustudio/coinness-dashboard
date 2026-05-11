@@ -26,6 +26,12 @@ html.light {
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:14px;min-height:100vh;}
 .mono{font-family:'JetBrains Mono',monospace;}
+.pc-only{font-size:12px;color:var(--text3);}
+
+/* 터치 대응 */
+button,select{-webkit-tap-highlight-color:transparent;}
+.btn{min-height:36px;}
+select{min-height:36px;}
 
 /* 실시간 BTC */
 .btc-realtime{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:5px 14px;font-family:'JetBrains Mono',monospace;}
@@ -190,11 +196,90 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
 /* divider */
 .divider{height:1px;background:var(--border);}
 
-/* 반응형 */
+/* ── 반응형 (태블릿 768px 이하) ── */
 @media(max-width:768px){
-  .stat-row,.summary-grid{grid-template-columns:repeat(2,1fr);}
-  .liq-grid,.chart-row{grid-template-columns:repeat(2,1fr);}
-  .funding-grid,.oi-grid{grid-template-columns:1fr;}
+  /* 헤더 */
+  header{padding:12px 16px;flex-wrap:wrap;gap:8px;}
+  header h1{font-size:15px;}
+  header>span:not(.badge){display:none;} /* 부제목 숨김 */
+  .header-right{width:100%;justify-content:space-between;}
+  .btc-realtime{padding:4px 10px;}
+  .btc-realtime .price{font-size:13px;}
+  .theme-toggle{font-size:11px;padding:4px 6px 4px 10px;}
+
+  /* 업로드 */
+  .upload-wrap{margin:16px;}
+
+  /* 필터바 */
+  .filter-bar{padding:10px 16px;gap:10px;flex-direction:column;align-items:flex-start;}
+  .filter-group{width:100%;}
+  select{width:100%;}
+  #tfBtns{width:100%;display:grid;grid-template-columns:repeat(4,1fr);}
+  #tfBtns .btn{text-align:center;padding:8px 4px;}
+
+  /* 메인 */
+  main{padding:14px 16px;gap:12px;}
+
+  /* 요약 스탯 */
+  .stat-row{grid-template-columns:repeat(2,1fr);gap:8px;}
+  .stat-v{font-size:14px;}
+
+  /* 요약 카드 */
+  .summary-grid{grid-template-columns:repeat(2,1fr);gap:8px;}
+  .sum-val{font-size:17px;}
+
+  /* 롱숏 바 */
+  .ls-labels{font-size:18px;}
+
+  /* 강제청산 */
+  .liq-grid{grid-template-columns:repeat(2,1fr);gap:8px;}
+  .liq-val{font-size:15px;}
+
+  /* 펀딩비율 */
+  .funding-grid{grid-template-columns:1fr;}
+  .exch{font-size:14px;}
+  .fval{font-size:16px;}
+
+  /* 미결제약정 */
+  .oi-grid{grid-template-columns:1fr;gap:8px;}
+  .oi-val{font-size:17px;}
+
+  /* 차트 컨트롤 */
+  .chart-row{grid-template-columns:1fr;}
+  .chart-wrap{height:160px;}
+  #periodBtns{display:grid;grid-template-columns:repeat(5,1fr);width:100%;}
+  #periodBtns .btn{text-align:center;padding:6px 2px;font-size:11px;}
+
+  /* 차트 섹션 상단 */
+  #chartSection>div:first-child{flex-direction:column;align-items:flex-start;}
+  #chartSection>div:first-child>div:last-child{width:100%;flex-direction:column;gap:6px;}
+  #chartSection>div:first-child>div:last-child>div{width:100%;display:grid;grid-template-columns:repeat(5,1fr);}
+
+  /* 해석 카드 */
+  .interp-card{flex-direction:column;gap:6px;}
+  .interp-time{min-width:unset;}
+
+  /* 카운트다운 */
+  .countdown-box{padding:14px 16px;gap:12px;}
+  .cd-timer{font-size:24px;}
+
+  /* AI 결과 카드 */
+  .ai-result-card{padding:14px 16px;font-size:13px;}
+}
+
+/* ── 반응형 (모바일 480px 이하) ── */
+@media(max-width:480px){
+  header h1{font-size:14px;}
+  .stat-row{grid-template-columns:repeat(2,1fr);}
+  .stat-v{font-size:13px;}
+  .summary-grid{grid-template-columns:repeat(2,1fr);}
+  .sum-val{font-size:15px;}
+  .liq-grid{grid-template-columns:repeat(2,1fr);}
+  .liq-val{font-size:14px;}
+  .ls-labels{font-size:16px;}
+  .chart-wrap{height:140px;}
+  .cd-timer{font-size:20px;letter-spacing:1px;}
+  #tfBtns .btn{font-size:11px;padding:6px 2px;}
 }
 </style>
 </head>
@@ -202,13 +287,13 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
 
 <header>
   <div class="dot"></div>
-  <h1>코인니스 선물 지표</h1>
+  <h1>코인 선물 지표</h1>
   <span class="badge">v2</span>
-  <span>펀딩피 기준 + 시간대별 수집</span>
+  <span class="pc-only">펀딩피 기준 + 시간대별 수집</span>
   <div class="header-right">
     <!-- 실시간 BTC -->
     <div class="btc-realtime" id="btcRealtime" style="display:none">
-      <span style="font-size:11px;color:var(--text3);">BTC 실시간 <span style="color:var(--amber);font-size:10px;">선물</span></span>
+      <span style="font-size:11px;color:var(--text3);">BTC <span style="color:var(--amber);font-size:10px;">선물</span></span>
       <span class="price" id="btcRtPrice">-</span>
       <span class="change" id="btcRtChange"></span>
       <span class="updated" id="btcRtUpdated"></span>
@@ -969,7 +1054,7 @@ async function copyPrompt() {
   const longT1=fmt(btcPrice*1.010), longT2=fmt(btcPrice*1.015), longStop=fmt(btcPrice*0.994);
   const shortT1=fmt(btcPrice*0.990), shortT2=fmt(btcPrice*0.985), shortStop=fmt(btcPrice*1.005);
 
-  const prompt=`당신은 암호화폐 선물 시장 전문 분석가입니다. 아래 코인니스에서 수집한 BTC 선물 지표 데이터를 심층 분석해주세요.
+  const prompt=`당신은 암호화폐 선물 시장 전문 분석가입니다. 아래 코인에서 수집한 BTC 선물 지표 데이터를 심층 분석해주세요.
 
 ## 수집 데이터 (최근 ${recent.length}개 시점, 1시간 기준)
 ${summary}
