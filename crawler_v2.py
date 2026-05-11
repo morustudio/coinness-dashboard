@@ -9,6 +9,7 @@ import os
 import time
 import logging
 import schedule
+import subprocess
 import pandas as pd
 from datetime import datetime
 from selenium import webdriver
@@ -300,6 +301,29 @@ def save_rows(rows: list[dict]) -> None:
     log.info(f"  저장 완료: {len(rows)}행 → {OUTPUT_FILE}")
 
 
+# ── GitHub Push ────────────────────────────────────────────
+def git_push(now_str: str) -> None:
+    try:
+        subprocess.run(["git", "add", OUTPUT_FILE], check=True)
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--stat"],
+            capture_output=True, text=True
+        )
+        if not result.stdout.strip():
+            log.info("  GitHub: 변경사항 없음, push 생략")
+            return
+        subprocess.run(
+            ["git", "commit", "-m", f"data: {now_str}"],
+            check=True
+        )
+        subprocess.run(["git", "push", "origin", "main"], check=True)
+        log.info("  ✅ GitHub push 완료")
+    except FileNotFoundError:
+        log.warning("  GitHub push 실패: git 명령어를 찾을 수 없음 (Git 설치 필요)")
+    except subprocess.CalledProcessError as e:
+        log.error(f"  GitHub push 실패: {e}")
+
+
 # ── 메인 수집 ─────────────────────────────────────────────
 def run_collection() -> None:
     now = datetime.now()
@@ -393,6 +417,7 @@ def run_collection() -> None:
                     log.error(f"  ❌ 최대 재시도 초과. 누락 포함 저장")
 
             save_rows(rows)
+            git_push(now_str)
             log.info(f"===== 수집 완료: {len(rows)}행 =====\n")
             return
 
@@ -446,6 +471,7 @@ import os
 import time
 import logging
 import schedule
+import subprocess
 import pandas as pd
 from datetime import datetime
 from selenium import webdriver

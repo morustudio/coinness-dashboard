@@ -220,9 +220,13 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
   </div>
 </header>
 
-<!-- 업로드 -->
-<div class="upload-wrap">
-  <div class="upload-area" id="uploadArea" onclick="document.getElementById('csvInput').click()">
+<!-- 업로드 / 자동 로드 -->
+<div class="upload-wrap" id="uploadWrap">
+  <div id="autoLoadMsg" style="text-align:center;padding:20px;color:var(--text3);font-size:13px;">
+    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display:inline-block;vertical-align:middle;margin-right:6px;animation:spin 1s linear infinite"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    CSV 자동 로드 중...
+  </div>
+  <div class="upload-area" id="uploadArea" onclick="document.getElementById('csvInput').click()" style="margin-top:0;display:none">
     <input type="file" id="csvInput" accept=".csv">
     <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="display:block;margin:0 auto 10px;color:var(--text3)"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
     <p><span>funding_data_v2.csv</span> 파일을 선택하거나 드래그하세요</p>
@@ -450,6 +454,71 @@ function toggleTheme() {
   if (allData.length) renderCharts();
 }
 
+// ── CSV 자동 로드 (GitHub Pages) ─────────────────────────
+const CSV_URL = 'funding_data_v2.csv';
+let _autoRefreshInterval = null;
+
+async function autoLoadCSV(silent = false) {
+  try {
+    const res = await fetch(CSV_URL + '?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    if (!text.trim()) throw new Error('빈 파일');
+
+    const parsed = parseCSV(text);
+    if (!parsed.length) throw new Error('파싱 실패');
+
+    const isNew = !allData.length || parsed.length !== allData.length;
+    allData = parsed;
+
+    document.getElementById('autoLoadMsg').style.display = 'none';
+    document.getElementById('uploadArea').style.display = 'none';
+
+    if (!document.getElementById('filterBar').style.display || document.getElementById('filterBar').style.display === 'none') {
+      // 최초 로드
+      initFilters();
+      document.getElementById('uploadWrap').style.display = 'none';
+      document.getElementById('filterBar').style.display = 'flex';
+      document.getElementById('dashboard').style.display = 'flex';
+      document.getElementById('chartSection').style.display = 'block';
+      render(); renderCharts(); renderSummaryCards(); renderInterpretation(); renderStrategy(); startCountdown();
+    } else if (isNew && !silent) {
+      // 새 데이터 감지 — 필터 유지하고 차트만 갱신
+      initFilters();
+      render(); renderCharts(); renderSummaryCards(); renderInterpretation(); renderStrategy();
+      showToast('새 데이터가 업데이트되었습니다');
+    }
+    return true;
+  } catch(e) {
+    if (!silent) {
+      // 자동 로드 실패 시 수동 업로드 UI 표시
+      document.getElementById('autoLoadMsg').style.display = 'none';
+      document.getElementById('uploadArea').style.display = 'block';
+    }
+    return false;
+  }
+}
+
+// 5분마다 자동 갱신
+function startAutoRefresh() {
+  if (_autoRefreshInterval) clearInterval(_autoRefreshInterval);
+  _autoRefreshInterval = setInterval(() => autoLoadCSV(true).then(ok => {
+    if (ok) document.getElementById('refreshBadge') && (document.getElementById('refreshBadge').textContent = new Date().toLocaleTimeString('ko-KR'));
+  }), 5 * 60 * 1000);
+}
+
+// 토스트 알림
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;transition:opacity .3s;';
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(), 300); }, 3000);
+}
+
+// 페이지 로드 시 자동 로드 시도
+autoLoadCSV().then(ok => { if (ok) startAutoRefresh(); });
+
 // ── CSV 파싱 ──────────────────────────────────────────────
 function splitCSVLine(line) {
   const result = []; let cur = ''; let inQuote = false;
@@ -499,11 +568,12 @@ function processCSV(text) {
   allData = parseCSV(text);
   if (!allData.length) { alert('데이터가 없습니다.'); return; }
   initFilters();
-  document.querySelector('.upload-wrap').style.display = 'none';
+  document.querySelector('#uploadWrap').style.display = 'none';
   document.getElementById('filterBar').style.display = 'flex';
   document.getElementById('dashboard').style.display = 'flex';
   document.getElementById('chartSection').style.display = 'block';
   render(); renderCharts(); renderSummaryCards(); renderInterpretation(); renderStrategy(); startCountdown();
+  startAutoRefresh();
 }
 
 document.getElementById('csvInput').addEventListener('change', e => {
@@ -513,7 +583,7 @@ document.getElementById('csvInput').addEventListener('change', e => {
 // 드래그앤드롭
 (function(){
   const area = document.getElementById('uploadArea');
-  const wrap = area.closest('.upload-wrap') || area.parentElement;
+  const wrap = document.getElementById('uploadWrap');
   area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag-over'); });
   area.addEventListener('dragleave', e => { if(!area.contains(e.relatedTarget)) area.classList.remove('drag-over'); });
   area.addEventListener('drop', e => {
