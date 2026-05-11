@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>코인니스 선물 지표 대시보드 v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg:#0a0c10; --bg2:#111318; --bg3:#181b22;
+  --border:#1e2330; --border2:#252b3a;
+  --text:#e2e8f0; --text2:#8892a4; --text3:#9fa7b5;
+  --long:#f04444; --short:#3b82f6;
+  --green:#22c55e; --amber:#f59e0b;
+  --accent:#6366f1; --accent2:#818cf8;
+}
+html.light {
+  --bg:#f0f2f5; --bg2:#fff; --bg3:#f5f7fa;
+  --border:#dde1e9; --border2:#c8cdd8;
+  --text:#1a1f2e; --text2:#4a5568; --text3:#9fa7b5;
+  --long:#dc2626; --short:#2563eb;
+  --green:#16a34a; --amber:#d97706;
+  --accent:#4f46e5; --accent2:#6366f1;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:14px;min-height:100vh;}
+.mono{font-family:'JetBrains Mono',monospace;}
+
+/* 실시간 BTC */
+.btc-realtime{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:5px 14px;font-family:'JetBrains Mono',monospace;}
+.btc-realtime .price{font-size:14px;font-weight:700;color:var(--text);}
+.btc-realtime .change.up{color:var(--green);}
+.btc-realtime .change.dn{color:var(--long);}
+.btc-realtime .change.flat{color:var(--text3);}
+.btc-realtime .updated{font-size:10px;color:var(--text3);font-family:'Noto Sans KR',sans-serif;}
+
+/* 헤더 */
+header{border-bottom:1px solid var(--border);padding:16px 28px;display:flex;align-items:center;gap:12px;background:var(--bg2);}
+header h1{font-size:17px;font-weight:700;}
+header .badge{font-size:10px;background:var(--accent);color:#fff;padding:2px 8px;border-radius:10px;font-weight:600;}
+header span{font-size:12px;color:var(--text3);}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);}
+
+/* 테마 토글 */
+.theme-toggle{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:5px 6px 5px 12px;cursor:pointer;font-size:12px;color:var(--text2);font-family:'Noto Sans KR',sans-serif;transition:all .2s;user-select:none;}
+.toggle-track{width:34px;height:18px;background:var(--border2);border-radius:9px;position:relative;transition:background .2s;}
+.toggle-track.on{background:var(--accent);}
+.toggle-knob{position:absolute;top:2px;left:2px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+.toggle-track.on .toggle-knob{transform:translateX(16px);}
+
+/* 업로드 */
+.upload-wrap{margin:24px 28px;}
+.upload-area{border:2px dashed var(--border2);border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;}
+.upload-area:hover,.upload-area.drag-over{border-color:var(--accent);background:rgba(99,102,241,.06);}
+.upload-area input{display:none;}
+.upload-area p{color:var(--text2);font-size:14px;}
+.upload-area span{color:var(--accent2);}
+
+/* 필터바 */
+.filter-bar{padding:14px 28px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+.filter-group{display:flex;align-items:center;gap:8px;}
+.filter-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;white-space:nowrap;}
+select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:6px 26px 6px 10px;border-radius:8px;font-size:13px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238892a4' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;transition:border-color .2s;}
+select:focus{outline:none;border-color:var(--accent);}
+
+/* 버튼 공통 */
+.btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;}
+.btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.btn:hover:not(.active){border-color:var(--accent2);color:var(--text);}
+.export-btn{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;border:1px solid var(--accent);background:rgba(99,102,241,.12);color:var(--accent2);font-size:12px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.export-btn:hover{background:var(--accent);color:#fff;}
+.ai-btn{border-color:#22c55e;background:rgba(34,197,94,.1);color:#22c55e;}
+.ai-btn:hover{background:#22c55e;color:#fff;}
+.ai-btn:disabled{opacity:.5;cursor:not-allowed;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;}
+
+/* 메인 */
+main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
+.section-title{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;}
+
+/* 카드 */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px;}
+.card-title{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.card-title::before{content:'';display:inline-block;width:3px;height:12px;border-radius:2px;background:var(--accent);}
+
+/* 요약 스탯 */
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;}
+.stat-l{font-size:11px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.6px;}
+.stat-v{font-size:17px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+
+/* 요약 카드 그리드 */
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.sum-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;}
+.sum-card.danger{border-color:rgba(240,68,68,.5);background:rgba(240,68,68,.06);}
+.sum-card.warn-card{border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.06);}
+.sum-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;}
+.sum-val{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.sum-sub{font-size:11px;color:var(--text3);margin-top:4px;}
+.sum-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;margin-top:5px;}
+.badge-warn{background:rgba(245,158,11,.2);color:#f59e0b;border:1px solid rgba(245,158,11,.4);}
+.badge-neg{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3);}
+.badge-pos{background:rgba(240,68,68,.15);color:#f87171;border:1px solid rgba(240,68,68,.3);}
+.sum-up{color:var(--green);}
+.sum-down{color:var(--long);}
+
+/* 롱숏 바 */
+.ls-labels{display:flex;justify-content:space-between;font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-bottom:6px;}
+.long-val{color:var(--long);}
+.short-val{color:var(--short);}
+.big-bar{height:10px;border-radius:6px;overflow:hidden;display:flex;margin-bottom:6px;}
+.long-seg{background:var(--long);transition:width .5s ease;}
+.short-seg{background:var(--short);flex:1;}
+.ls-sub{display:flex;justify-content:space-between;font-size:13px;color:var(--text3);}
+
+/* 강제청산 */
+.liq-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.liq-item{background:var(--bg3);border-radius:8px;padding:12px 14px;}
+.liq-label{font-size:13px;color:var(--text3);margin-bottom:5px;}
+.liq-val{font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.liq-val.long{color:var(--long);}
+.liq-val.short{color:var(--short);}
+.liq-val.neutral{color:var(--text);}
+
+/* 펀딩비율 */
+.funding-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.funding-item{background:var(--bg3);border-radius:8px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;}
+.exch{font-size:16px;font-weight:500;}
+.fval{font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.fval.pos{color:var(--long);}
+.fval.neg{color:var(--short);}
+.fval.zero{color:var(--text3);}
+
+/* 미결제약정 */
+.oi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.oi-item{background:var(--bg3);border-radius:8px;padding:14px 16px;}
+.oi-label{font-size:13px;color:var(--text3);margin-bottom:5px;}
+.oi-val{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--accent2);}
+.oi-bar{height:4px;border-radius:3px;background:var(--border2);overflow:hidden;margin-top:8px;}
+.oi-bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .5s;}
+.oi-pct{font-size:11px;color:var(--text3);margin-top:4px;}
+
+/* 타이밍 배지 */
+.timing-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:13px;font-weight:500;}
+.timing-badge.before60{background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.3);}
+.timing-badge.before30{background:rgba(245,158,11,.2);color:#f59e0b;border:1px solid rgba(245,158,11,.4);}
+.timing-badge.on{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);}
+.timing-badge.after30{background:rgba(99,102,241,.15);color:#818cf8;border:1px solid rgba(99,102,241,.3);}
+.timing-badge.after60{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3);}
+.timing-badge.normal{background:rgba(148,163,184,.1);color:#94a3b8;border:1px solid rgba(148,163,184,.2);}
+
+/* 차트 */
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px;}
+.chart-card.full{grid-column:1/-1;}
+.chart-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.chart-title::before{content:'';display:inline-block;width:3px;height:13px;border-radius:2px;background:var(--accent);}
+.chart-wrap{position:relative;height:180px;}
+.chart-legend{display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text3);}
+.legend-dot{width:10px;height:3px;border-radius:2px;}
+
+/* 해석 카드 */
+.interp-card{display:flex;gap:12px;align-items:flex-start;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:12px 16px;}
+.interp-card.danger{border-left-color:var(--long);background:rgba(240,68,68,.05);}
+.interp-card.safe{border-left-color:var(--green);background:rgba(34,197,94,.05);}
+.interp-card.warn{border-left-color:var(--amber);background:rgba(245,158,11,.05);}
+.interp-time{font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;min-width:130px;color:var(--text);}
+.interp-text{font-size:13px;color:var(--text2);line-height:1.6;}
+
+/* 전략 카드 */
+.strategy-card{display:flex;align-items:flex-start;gap:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 16px;}
+.strategy-icon{font-size:18px;line-height:1;flex-shrink:0;margin-top:1px;}
+.strategy-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;}
+.strategy-desc{font-size:12px;color:var(--text3);line-height:1.5;}
+.strategy-val{font-family:'JetBrains Mono',monospace;color:var(--accent2);}
+
+/* AI 결과 */
+.ai-result-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;font-size:14px;line-height:1.8;color:var(--text2);word-break:break-word;}
+
+/* 카운트다운 */
+.countdown-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px 24px;display:flex;align-items:center;gap:20px;}
+.cd-label{font-size:13px;color:var(--text3);}
+.cd-timer{font-size:32px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--accent2);letter-spacing:2px;}
+.cd-next{font-size:12px;color:var(--text3);}
+
+/* divider */
+.divider{height:1px;background:var(--border);}
+
+/* 반응형 */
+@media(max-width:768px){
+  .stat-row,.summary-grid{grid-template-columns:repeat(2,1fr);}
+  .liq-grid,.chart-row{grid-template-columns:repeat(2,1fr);}
+  .funding-grid,.oi-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="dot"></div>
+  <h1>코인니스 선물 지표</h1>
+  <span class="badge">v2</span>
+  <span>펀딩피 기준 + 시간대별 수집</span>
+  <div class="header-right">
+    <!-- 실시간 BTC -->
+    <div class="btc-realtime" id="btcRealtime" style="display:none">
+      <span style="font-size:11px;color:var(--text3);">BTC 실시간 <span style="color:var(--amber);font-size:10px;">선물</span></span>
+      <span class="price" id="btcRtPrice">-</span>
+      <span class="change" id="btcRtChange"></span>
+      <span class="updated" id="btcRtUpdated"></span>
+    </div>
+    <div class="theme-toggle" onclick="toggleTheme()" id="themeToggle">
+      <span id="themeLabel">라이트 모드</span>
+      <div class="toggle-track" id="toggleTrack"><div class="toggle-knob"></div></div>
+    </div>
+  </div>
+</header>
+
+<!-- 업로드 -->
+<div class="upload-wrap">
+  <div class="upload-area" id="uploadArea" onclick="document.getElementById('csvInput').click()">
+    <input type="file" id="csvInput" accept=".csv">
+    <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="display:block;margin:0 auto 10px;color:var(--text3)"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+    <p><span>funding_data_v2.csv</span> 파일을 선택하거나 드래그하세요</p>
+    <p style="font-size:12px;color:var(--text3);margin-top:6px;">v1(시간대 컬럼 포함) 파일도 자동 변환됩니다</p>
+  </div>
+</div>
+
+<!-- 필터바 -->
+<div class="filter-bar" id="filterBar" style="display:none">
+  <div class="filter-group">
+    <span class="filter-label">정산회차</span>
+    <select id="sessionSel"></select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">타이밍</span>
+    <select id="timingSel"></select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">시간대</span>
+    <div style="display:flex;gap:4px;" id="tfBtns">
+      <button class="btn active" onclick="setTf('1시간')">1시간</button>
+      <button class="btn" onclick="setTf('4시간')">4시간</button>
+      <button class="btn" onclick="setTf('12시간')">12시간</button>
+      <button class="btn" onclick="setTf('24시간')">24시간</button>
+    </div>
+  </div>
+</div>
+
+<!-- 대시보드 본문 -->
+<main id="dashboard" style="display:none">
+
+  <!-- 요약 스탯 -->
+  <div class="stat-row" id="statRow"></div>
+  <div class="divider"></div>
+
+  <!-- 롱숏비율 -->
+  <div>
+    <div class="section-title" id="lsTitle">롱숏 비율 (1시간)</div>
+    <div class="card" id="lsCard"><div style="color:var(--text3);padding:20px;text-align:center;">데이터 없음</div></div>
+  </div>
+
+  <!-- 강제청산 -->
+  <div>
+    <div class="section-title" id="liqTitle">강제청산 (1시간)</div>
+    <div class="card" id="liqCard"><div style="color:var(--text3);padding:20px;text-align:center;">데이터 없음</div></div>
+  </div>
+
+  <!-- 펀딩비율 -->
+  <div>
+    <div class="section-title">펀딩비율 (USDT)</div>
+    <div class="card" id="fundCard"><div style="color:var(--text3);padding:20px;text-align:center;">데이터 없음</div></div>
+  </div>
+
+  <!-- 미결제약정 -->
+  <div>
+    <div class="section-title">미결제약정 (바이낸스)</div>
+    <div class="card" id="oiCard"><div style="color:var(--text3);padding:20px;text-align:center;">데이터 없음</div></div>
+  </div>
+
+  <!-- 차트 섹션 -->
+  <div id="chartSection" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+      <div class="section-title" style="margin-bottom:0">추세 차트 — 전체 수집 데이터</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <button class="export-btn" onclick="exportCSV()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+          CSV 내보내기
+        </button>
+        <div style="display:flex;gap:4px;" id="periodBtns">
+          <button class="btn" onclick="setPeriod(1)">1일</button>
+          <button class="btn" onclick="setPeriod(7)">7일</button>
+          <button class="btn" onclick="setPeriod(30)">30일</button>
+          <button class="btn" onclick="setPeriod(90)">90일</button>
+          <button class="btn active" onclick="setPeriod(0)">전체</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 최신값 요약 카드 -->
+    <div class="summary-grid" id="summaryCards" style="margin-bottom:14px;"></div>
+
+    <!-- BTC 차트 -->
+    <div class="chart-card full" style="margin-bottom:14px;">
+      <div class="chart-title">BTC 수집시간가 (USD) — 수집 시점 기준</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="btcChart"></canvas></div>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>BTC 가격</div>
+        <div class="legend-item"><div style="width:8px;height:8px;border-radius:50%;background:#ef4444"></div>정산 기준</div>
+        <div class="legend-item"><div style="width:8px;height:8px;border-radius:50%;background:#f59e0b"></div>정산 30분전</div>
+      </div>
+    </div>
+
+    <!-- 펀딩 + 미결제 -->
+    <div class="chart-row" style="margin-bottom:14px;">
+      <div class="chart-card">
+        <div class="chart-title">펀딩비율 흐름</div>
+        <div class="chart-wrap"><canvas id="fundingChart"></canvas></div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#f04444"></div>바이낸스</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#22c55e;border-top:2px dashed #22c55e;height:0;background:transparent"></div>OKX</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>바이비트</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">미결제약정 (바이낸스 BTC)</div>
+        <div class="chart-wrap"><canvas id="oiChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 청산비율 -->
+    <div class="chart-card full" style="margin-bottom:14px;">
+      <div class="chart-title">청산 비율 + 청산금액</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="liqChart"></canvas></div>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#f04444"></div>숏 청산 우세</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>롱 청산 우세</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;border-top:2px dashed #f59e0b;height:0;background:transparent"></div>청산금액(M)</div>
+      </div>
+    </div>
+
+    <!-- 롱숏 추이 -->
+    <div class="chart-card full" style="margin-bottom:14px;">
+      <div class="chart-title">롱숏 비율 추이</div>
+      <div class="chart-wrap"><canvas id="lsChart"></canvas></div>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#f04444"></div>롱</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>숏</div>
+      </div>
+    </div>
+
+    <!-- 시간대별 해석 -->
+    <div style="margin-bottom:10px;">
+      <div class="section-title">시간대별 자동 해석</div>
+      <div id="interpretCards" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
+    <!-- 전략 판단 -->
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <div class="section-title" style="margin-bottom:0">규칙 기반 전략 판단</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="export-btn ai-btn" onclick="copyPrompt()" id="copyPromptBtn">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+            AI 분석 프롬프트 복사
+          </button>
+        </div>
+      </div>
+      <div id="strategyCards" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
+    <!-- AI 결과 -->
+    <div id="aiResultWrap" style="display:none;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;cursor:pointer;" onclick="toggleAIResult()">
+        <div class="section-title" style="margin-bottom:0">AI 분석 프롬프트</div>
+        <button id="aiToggleBtn" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;font-family:'Noto Sans KR',sans-serif;">
+          <svg id="aiToggleIcon" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="transition:transform .2s"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+          접기
+        </button>
+      </div>
+      <div id="aiResultBody">
+        <div class="ai-result-card">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <span style="font-size:20px;">✅</span>
+            <strong style="color:var(--text);font-size:15px;">프롬프트가 클립보드에 복사되었습니다!</strong>
+          </div>
+          <div style="color:var(--text3);font-size:13px;line-height:1.8;">
+            1. 아래 버튼으로 <strong style="color:var(--accent2)">Claude.ai</strong>를 여세요<br>
+            2. <kbd style="background:var(--bg3);border:1px solid var(--border2);padding:2px 6px;border-radius:4px;font-size:12px;">Ctrl+V</kbd> 로 붙여넣기 후 전송
+          </div>
+          <a href="https://claude.ai" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:14px;padding:8px 18px;background:var(--accent);color:#fff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+            Claude.ai 열기
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 카운트다운 -->
+    <div class="countdown-box">
+      <div class="cd-label">다음 정산까지</div>
+      <div class="cd-timer" id="cdTimer">--:--:--</div>
+      <div class="cd-next" id="cdNext"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── 상태 ────────────────────────────────────────────────────
+let allData = [];
+let currentPeriod = 0;
+let currentTf = '1시간';
+let isLight = false;
+let chartInstances = {};
+let _aiCollapsed = false;
+let _cdInterval = null;
+
+// 타이밍 색상/클래스
+const TIMING_META = {
+  '정산_1시간전':  { cls:'before60', label:'▶ 1시간 전' },
+  '정산_30분전':   { cls:'before30', label:'▶ 30분 전' },
+  '정산_기준':     { cls:'on',       label:'● 정산 기준' },
+  '정산_30분후':   { cls:'after30',  label:'◀ 30분 후' },
+  '정산_1시간후':  { cls:'after60',  label:'◀ 1시간 후' },
+  '일반':          { cls:'normal',   label:'— 일반' },
+};
+
+// 차트 정산기준 포인트 색상
+function ptColor(r, base) {
+  if (r['타이밍'] === '정산_기준') return '#ef4444';
+  if (r['타이밍'] === '정산_30분전') return '#f59e0b';
+  return base;
+}
+function ptRadius(r) {
+  if (r['타이밍'] === '정산_기준') return 6;
+  if (r['타이밍'] === '정산_30분전') return 5;
+  return 3;
+}
+
+// ── 테마 ──────────────────────────────────────────────────
+function toggleTheme() {
+  isLight = !isLight;
+  document.documentElement.classList.toggle('light', isLight);
+  document.getElementById('themeLabel').textContent = isLight ? '다크 모드' : '라이트 모드';
+  document.getElementById('toggleTrack').classList.toggle('on', isLight);
+  if (allData.length) renderCharts();
+}
+
+// ── CSV 파싱 ──────────────────────────────────────────────
+function splitCSVLine(line) {
+  const result = []; let cur = ''; let inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { if (inQuote && line[i+1]==='"') { cur+='"'; i++; } else inQuote=!inQuote; }
+    else if (ch === ',' && !inQuote) { result.push(cur.trim()); cur=''; }
+    else cur += ch;
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = splitCSVLine(lines[0]).map(h => h.replace(/^\uFEFF/,''));
+  let rows = lines.slice(1).map(line => {
+    const vals = splitCSVLine(line);
+    const obj = {};
+    headers.forEach((h,i) => obj[h] = (vals[i]||'').trim());
+    return obj;
+  }).filter(r => r['수집시간']);
+
+  // v1 → v2 자동 변환 (시간대 컬럼 있으면 1시간만 남기고 제거)
+  if (headers.includes('시간대')) {
+    rows = rows.filter(r => r['시간대'] === '1시간');
+    rows.forEach(r => delete r['시간대']);
+  }
+  return rows;
+}
+
+function loadCSVFile(file) {
+  const rUtf = new FileReader();
+  rUtf.onload = ev => {
+    const text = ev.target.result;
+    if (!text.includes('수집시간') && !text.includes('\uFEFF수집시간')) {
+      const rEuc = new FileReader();
+      rEuc.onload = ev2 => processCSV(ev2.target.result);
+      rEuc.readAsText(file, 'EUC-KR');
+    } else processCSV(text);
+  };
+  rUtf.readAsText(file, 'UTF-8');
+}
+
+function processCSV(text) {
+  allData = parseCSV(text);
+  if (!allData.length) { alert('데이터가 없습니다.'); return; }
+  initFilters();
+  document.querySelector('.upload-wrap').style.display = 'none';
+  document.getElementById('filterBar').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'flex';
+  document.getElementById('chartSection').style.display = 'block';
+  render(); renderCharts(); renderSummaryCards(); renderInterpretation(); renderStrategy(); startCountdown();
+}
+
+document.getElementById('csvInput').addEventListener('change', e => {
+  if (e.target.files[0]) loadCSVFile(e.target.files[0]);
+});
+
+// 드래그앤드롭
+(function(){
+  const area = document.getElementById('uploadArea');
+  const wrap = area.closest('.upload-wrap') || area.parentElement;
+  area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag-over'); });
+  area.addEventListener('dragleave', e => { if(!area.contains(e.relatedTarget)) area.classList.remove('drag-over'); });
+  area.addEventListener('drop', e => {
+    e.preventDefault(); area.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (!file.name.endsWith('.csv')) { alert('.csv 파일만 지원합니다.'); return; }
+    wrap.style.display = 'none';
+    loadCSVFile(file);
+  });
+})();
+
+// ── 필터 ──────────────────────────────────────────────────
+function initFilters() {
+  const sessionSet = new Set();
+  allData.forEach(d => {
+    const date = (d['수집시간']||'').slice(5,10);
+    sessionSet.add(date ? `${date} ${d['정산회차']}` : d['정산회차']);
+  });
+  const sessions = [...sessionSet].sort((a,b)=>a.localeCompare(b));
+  const timings  = [...new Set(allData.map(d=>d['타이밍']))];
+
+  const seSel = document.getElementById('sessionSel');
+  const tiSel = document.getElementById('timingSel');
+  seSel.innerHTML = sessions.map(s=>`<option>${s}</option>`).join('');
+  tiSel.innerHTML = timings.map(t=>`<option>${t}</option>`).join('');
+  seSel.selectedIndex = seSel.options.length - 1;
+  seSel.onchange = tiSel.onchange = () => { render(); };
+}
+
+function setTf(tf) {
+  currentTf = tf;
+  document.querySelectorAll('#tfBtns .btn').forEach(b =>
+    b.classList.toggle('active', b.textContent === tf)
+  );
+  render();
+}
+
+function getRow() {
+  const key     = document.getElementById('sessionSel').value;
+  const timing  = document.getElementById('timingSel').value;
+  const date    = key.slice(0,5);
+  const session = key.slice(6);
+
+  // 현재 시간대 데이터 있으면 사용, 없으면 1시간으로 fallback
+  let row = allData.find(d => {
+    const dDate = (d['수집시간']||'').slice(5,10);
+    return dDate===date && d['정산회차']===session && d['타이밍']===timing && (d['시간대']||'1시간')===currentTf;
+  });
+  // 해당 시간대 없으면 시간대 무관하게 찾기 (1시간만 수집된 시점)
+  if (!row) {
+    row = allData.find(d => {
+      const dDate = (d['수집시간']||'').slice(5,10);
+      return dDate===date && d['정산회차']===session && d['타이밍']===timing;
+    });
+  }
+  return row;
+}
+
+// ── 기간 필터 ─────────────────────────────────────────────
+function setPeriod(days) {
+  currentPeriod = days;
+  document.querySelectorAll('#periodBtns .btn').forEach(b => {
+    const d = b.textContent==='전체' ? 0 : parseInt(b.textContent);
+    b.classList.toggle('active', d===days);
+  });
+  renderCharts(); renderSummaryCards(); renderInterpretation(); renderStrategy();
+}
+
+function getFilteredRows() {
+  let rows = [...allData].sort((a,b)=>(a['수집시간']||'').localeCompare(b['수집시간']||''));
+  if (currentPeriod > 0) {
+    const now = new Date();
+    const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    cutoff.setDate(cutoff.getDate() - (currentPeriod-1));
+    rows = rows.filter(d => new Date((d['수집시간']||'').replace(' ','T')) >= cutoff);
+  }
+  return rows;
+}
+
+// ── 파싱 헬퍼 ─────────────────────────────────────────────
+function parsePct(v) {
+  if (v===null||v===undefined||v==='') return null;
+  const n = parseFloat(v.replace('%','').replace('+',''));
+  return isNaN(n) ? null : n;
+}
+function parseBtcPrice(v) {
+  if (!v) return null;
+  const n = parseFloat(v.replace(/[$,"\s]/g,''));
+  return isNaN(n) ? null : n;
+}
+function formatPrice(v) {
+  if (v===null||v===undefined) return '-';
+  const n = Math.round(Number(v));
+  return '$' + n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');
+}
+function fClass(v) {
+  if (!v) return 'zero';
+  if (v.startsWith('+')) return 'pos';
+  if (v.startsWith('-')) return 'neg';
+  return 'zero';
+}
+function timingBadge(t) {
+  const m = TIMING_META[t] || {cls:'normal', label:t};
+  return `<span class="timing-badge ${m.cls}">${m.label}</span>`;
+}
+function makeXLabel(r) {
+  const t = (r['수집시간']||'').split(' ');
+  return `${t[0]?t[0].slice(5):''}\n${t[1]?t[1].slice(0,5):''}`;
+}
+
+// ── 렌더링: 상단 카드 ─────────────────────────────────────
+function render() {
+  // 섹션 타이틀 업데이트
+  const lsT = document.getElementById('lsTitle');
+  const liqT = document.getElementById('liqTitle');
+  if (lsT)  lsT.textContent  = `롱숏 비율 (${currentTf})`;
+  if (liqT) liqT.textContent = `강제청산 (${currentTf})`;
+
+  const row = getRow();
+  if (!row) {
+    ['statRow','lsCard','liqCard','fundCard','oiCard'].forEach(id => {
+      document.getElementById(id).innerHTML = '<div style="color:var(--text3);padding:20px;text-align:center;">선택한 조건의 데이터가 없습니다.</div>';
+    });
+    return;
+  }
+  renderStat(row); renderLS(row); renderLiq(row); renderFund(row); renderOI(row);
+}
+
+function renderStat(row) {
+  document.getElementById('statRow').innerHTML = `
+    <div class="stat-card"><div class="stat-l">수집 시간</div><div class="stat-v mono" style="font-size:13px">${row['수집시간']||'-'}</div></div>
+    <div class="stat-card"><div class="stat-l">정산회차</div><div class="stat-v">${row['정산회차']||'-'}</div></div>
+    <div class="stat-card"><div class="stat-l">타이밍</div><div class="stat-v" style="font-size:13px;padding-top:3px">${timingBadge(row['타이밍']||'')}</div></div>
+    <div class="stat-card"><div class="stat-l">BTC 수집시간가</div><div class="stat-v" style="font-size:14px">${formatPrice(parseBtcPrice(row['BTC_현재가']))}<br><span style="font-size:10px;color:var(--text3);font-family:'Noto Sans KR',sans-serif;">수집: ${(row['수집시간']||'').slice(5)}</span></div></div>
+  `;
+}
+
+function renderLS(row) {
+  const lv = parseFloat(row['롱숏_롱'])||0;
+  document.getElementById('lsCard').innerHTML = `
+    <div class="ls-labels"><span class="long-val">${row['롱숏_롱']||'-'}</span><span class="short-val">${row['롱숏_숏']||'-'}</span></div>
+    <div class="big-bar"><div class="long-seg" style="width:${lv}%"></div><div class="short-seg"></div></div>
+    <div class="ls-sub"><span>롱포지션</span><span>숏포지션</span></div>`;
+}
+
+function renderLiq(row) {
+  const br = row['청산비율']||'-';
+  const isL = br.includes('롱');
+  document.getElementById('liqCard').innerHTML = `
+    <div class="liq-grid">
+      <div class="liq-item"><div class="liq-label">청산금액</div><div class="liq-val neutral">${row['청산금액']||'-'}</div></div>
+      <div class="liq-item"><div class="liq-label">롱포지션 청산</div><div class="liq-val long">${row['청산_롱']||'-'}</div></div>
+      <div class="liq-item"><div class="liq-label">숏포지션 청산</div><div class="liq-val short">${row['청산_숏']||'-'}</div></div>
+      <div class="liq-item"><div class="liq-label">청산 비율</div><div class="liq-val ${isL?'long':'short'}">${br}</div></div>
+    </div>`;
+}
+
+function renderFund(row) {
+  const exs = [['바이낸스','펀딩_바이낸스'],['OKX','펀딩_OKX'],['바이비트','펀딩_바이비트']];
+  document.getElementById('fundCard').innerHTML = `<div class="funding-grid">${
+    exs.map(([n,k])=>{const v=row[k]||'-';return`<div class="funding-item"><span class="exch">${n}</span><span class="fval ${fClass(v)}">${v}</span></div>`;}).join('')
+  }</div>`;
+}
+
+function renderOI(row) {
+  const pct=row['미결제_비중']||'-', btc=row['미결제_BTC']||'-', usd=row['미결제_USD']||'-';
+  const pn=parseFloat(pct)||0;
+  document.getElementById('oiCard').innerHTML = `
+    <div class="oi-grid">
+      <div class="oi-item"><div class="oi-label">미결제약정 비중</div><div class="oi-val">${pct}</div>
+        <div class="oi-bar"><div class="oi-bar-fill" style="width:${Math.min(pn*2,100)}%"></div></div>
+        <div class="oi-pct">바이낸스 점유율</div></div>
+      <div class="oi-item"><div class="oi-label">BTC</div><div class="oi-val">${btc}</div></div>
+      <div class="oi-item"><div class="oi-label">USD</div><div class="oi-val">${usd}</div></div>
+    </div>`;
+}
+
+// ── 요약 카드 ─────────────────────────────────────────────
+function renderSummaryCards() {
+  const rows = getFilteredRows();
+  if (!rows.length) return;
+  const latest=rows[rows.length-1], prev=rows[rows.length-2];
+  const btcNow=parseBtcPrice(latest['BTC_현재가']), btcPrev=prev?parseBtcPrice(prev['BTC_현재가']):null;
+  const btcDiff=btcNow!==null&&btcPrev!==null?btcNow-btcPrev:null, btcUp=btcDiff!==null&&btcDiff>=0;
+  const bnF=parsePct(latest['펀딩_바이낸스']), okF=parsePct(latest['펀딩_OKX']), byF=parsePct(latest['펀딩_바이비트']);
+  const vals=[bnF,okF,byF].filter(v=>v!==null);
+  const gap=vals.length>=2?+(Math.max(...vals)-Math.min(...vals)).toFixed(4):null;
+  const gapWarn=gap!==null&&Math.abs(gap)>0.01;
+  const bnNeg=bnF!==null&&bnF<0;
+  const oiArr=rows.slice(-3).map(r=>parseFloat(r['미결제_BTC'])||null).filter(v=>v!==null);
+  const oiDec=oiArr.length>=2&&oiArr.every((v,i)=>i===0||v<=oiArr[i-1]);
+
+  document.getElementById('summaryCards').innerHTML = `
+    <div class="sum-card${bnNeg?' danger':''}">
+      <div class="sum-label">BTC 현재가</div>
+      <div class="sum-val ${btcDiff===null?'':btcUp?'sum-up':'sum-down'}">${btcNow!==null?formatPrice(btcNow):'-'}</div>
+      <div class="sum-sub">${btcDiff!==null?(btcUp?'▲ +':'▼ ')+formatPrice(Math.abs(btcDiff)):'이전 데이터 없음'}</div>
+    </div>
+    <div class="sum-card${bnNeg?' danger':''}">
+      <div class="sum-label">바이낸스 펀딩비</div>
+      <div class="sum-val ${bnNeg?'sum-down':'sum-up'}">${bnF!==null?(bnF>=0?'+':'')+bnF.toFixed(3)+'%':'-'}</div>
+      <div class="sum-sub">${bnNeg?'숏 → 롱 지급':'롱 → 숏 지급'}</div>
+      <span class="sum-badge ${bnNeg?'badge-neg':'badge-pos'}">${bnNeg?'숏 부담':'롱 부담'}</span>
+    </div>
+    <div class="sum-card${gapWarn?' warn-card':''}">
+      <div class="sum-label">거래소 펀딩비 괴리폭</div>
+      <div class="sum-val">${gap!==null?(gap>=0?'+':'')+gap.toFixed(3)+'%':'-'}</div>
+      <div class="sum-sub">바이낸스 ↔ OKX ↔ 바이비트</div>
+      ${gapWarn?'<span class="sum-badge badge-warn">⚠ 0.010%p 초과</span>':''}
+    </div>
+    <div class="sum-card">
+      <div class="sum-label">미결제약정 (BTC)</div>
+      <div class="sum-val">${latest['미결제_BTC']||'-'}</div>
+      <div class="sum-sub ${oiDec?'sum-down':''}">${oiDec?'▼ 연속 감소 중':'안정'}</div>
+    </div>`;
+}
+
+// ── 차트 ─────────────────────────────────────────────────
+function destroyChart(id) { if(chartInstances[id]){chartInstances[id].destroy();delete chartInstances[id];} }
+
+function baseScale() {
+  const tc=isLight?'#6b7280':'#8892a4', gc=isLight?'rgba(0,0,0,.06)':'rgba(255,255,255,.05)';
+  return {tc,gc};
+}
+function scaleX(tc) { return {ticks:{font:{size:10},color:tc,maxRotation:45,minRotation:30},grid:{display:false}}; }
+function scaleY(tc,gc,cb) { return {ticks:{font:{size:11},color:tc,callback:cb},grid:{color:gc}}; }
+
+function renderCharts() {
+  const rows = getFilteredRows();
+  if (!rows.length) return;
+  const {tc,gc} = baseScale();
+  const labels = rows.map(makeXLabel);
+
+  // BTC (중복 제거: 수집시간 기준 unique)
+  const btcRows = (() => {
+    const seen=new Set();
+    return getFilteredRows().filter(d=>{if(seen.has(d['수집시간']))return false;seen.add(d['수집시간']);return true;});
+  })();
+  const btcLabels = btcRows.map(makeXLabel);
+  const btcData = btcRows.map(r=>{const v=r['BTC_현재가']||'';return v?+parseFloat(v.replace(/[$,"\s]/g,'')).toFixed(0):null;});
+  const btcMin=Math.min(...btcData.filter(v=>v!==null)), btcMax=Math.max(...btcData.filter(v=>v!==null));
+  const btcPad=Math.round((btcMax-btcMin)*.1)||500;
+
+  destroyChart('btcChart');
+  if(document.getElementById('btcChart')&&btcData.some(v=>v!==null)){
+    chartInstances['btcChart']=new Chart(document.getElementById('btcChart'),{
+      type:'line',
+      data:{labels:btcLabels,datasets:[{label:'BTC',data:btcData,borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,.08)',tension:.3,borderWidth:2,fill:true,
+        pointBackgroundColor:btcRows.map(r=>ptColor(r,'#f59e0b')),pointRadius:btcRows.map(r=>ptRadius(r))}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const n=Math.round(Number(ctx.raw));return '$'+n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');}}}},
+        scales:{x:scaleX(tc),y:{...scaleY(tc,gc,v=>{const n=Math.round(v);return '$'+n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');}),min:btcMin-btcPad,max:btcMax+btcPad}}}
+    });
+  }
+
+  // 펀딩
+  destroyChart('fundingChart');
+  chartInstances['fundingChart']=new Chart(document.getElementById('fundingChart'),{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'바이낸스',data:rows.map(r=>parsePct(r['펀딩_바이낸스'])),borderColor:'#f04444',backgroundColor:'rgba(240,68,68,.07)',tension:.3,borderWidth:2,fill:true,pointBackgroundColor:rows.map(r=>ptColor(r,'#f04444')),pointRadius:rows.map(r=>ptRadius(r))},
+      {label:'OKX',data:rows.map(r=>parsePct(r['펀딩_OKX'])),borderColor:'#22c55e',backgroundColor:'transparent',tension:.3,borderWidth:2,borderDash:[4,3],pointBackgroundColor:rows.map(r=>ptColor(r,'#22c55e')),pointRadius:rows.map(r=>ptRadius(r))},
+      {label:'바이비트',data:rows.map(r=>parsePct(r['펀딩_바이비트'])),borderColor:'#3b82f6',backgroundColor:'transparent',tension:.3,borderWidth:2,pointBackgroundColor:rows.map(r=>ptColor(r,'#3b82f6')),pointRadius:rows.map(r=>ptRadius(r))}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw?.toFixed(3)}%`}}},
+      scales:{x:scaleX(tc),y:scaleY(tc,gc,v=>v?.toFixed(3)+'%')}}
+  });
+
+  // 미결제
+  destroyChart('oiChart');
+  chartInstances['oiChart']=new Chart(document.getElementById('oiChart'),{
+    type:'line',
+    data:{labels,datasets:[{label:'BTC(B)',data:rows.map(r=>{const v=r['미결제_BTC']||'';return v?+parseFloat(v).toFixed(3):null;}),borderColor:'#818cf8',backgroundColor:'rgba(129,140,248,.1)',tension:.3,borderWidth:2,fill:true,pointBackgroundColor:rows.map(r=>ptColor(r,'#818cf8')),pointRadius:rows.map(r=>ptRadius(r))}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw?.toFixed(3)}B`}}},
+      scales:{x:scaleX(tc),y:scaleY(tc,gc,v=>parseFloat(v).toFixed(2)+'B')}}
+  });
+
+  // 청산
+  destroyChart('liqChart');
+  const liqPcts=rows.map(r=>parseFloat(r['청산비율'])||null);
+  const liqCols=rows.map(r=>(r['청산비율']||'').includes('롱')?'#22c55e':'#f04444');
+  const liqAmts=rows.map(r=>{const v=r['청산금액']||'';const n=parseFloat(v);if(v.includes('B'))return n*1000;if(v.includes('M'))return n;if(v.includes('K'))return n/1000;return n;});
+  destroyChart('liqChart');
+  chartInstances['liqChart']=new Chart(document.getElementById('liqChart'),{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'청산비율',data:liqPcts,backgroundColor:liqCols,borderRadius:4,yAxisID:'y'},
+      {label:'청산금액(M)',data:liqAmts,type:'line',borderColor:'#f59e0b',backgroundColor:'transparent',tension:.3,pointRadius:2,borderWidth:2,borderDash:[4,3],yAxisID:'y2'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.datasetIndex===0?rows[ctx.dataIndex]['청산비율']||'':rows[ctx.dataIndex]['청산금액']||''}}},
+      scales:{x:scaleX(tc),y:{...scaleY(tc,gc,v=>v+'%'),min:0,max:100,position:'left'},y2:{...scaleY(tc,gc,v=>v+'M'),position:'right',grid:{display:false}}}}
+  });
+
+  // 롱숏
+  const lsLong=rows.map(r=>parsePct(r['롱숏_롱'])), lsShort=rows.map(r=>parsePct(r['롱숏_숏']));
+  const lsAll=[...lsLong,...lsShort].filter(v=>v!==null);
+  const lsMin=Math.floor(Math.min(...lsAll)*2)/2-2, lsMax=Math.ceil(Math.max(...lsAll)*2)/2+2;
+  destroyChart('lsChart');
+  chartInstances['lsChart']=new Chart(document.getElementById('lsChart'),{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'롱',data:lsLong,borderColor:'#f04444',backgroundColor:'rgba(240,68,68,.07)',tension:.3,borderWidth:2,fill:true,pointBackgroundColor:rows.map(r=>ptColor(r,'#f04444')),pointRadius:rows.map(r=>ptRadius(r))},
+      {label:'숏',data:lsShort,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.07)',tension:.3,borderWidth:2,fill:true,pointBackgroundColor:rows.map(r=>ptColor(r,'#3b82f6')),pointRadius:rows.map(r=>ptRadius(r))}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw?.toFixed(2)}%`}}},
+      scales:{x:scaleX(tc),y:{...scaleY(tc,gc,v=>v.toFixed(1)+'%'),min:lsMin,max:lsMax}}}
+  });
+}
+
+// ── 해석 카드 ─────────────────────────────────────────────
+function renderInterpretation() {
+  const rows = getFilteredRows();
+  if (!rows.length) { document.getElementById('interpretCards').innerHTML=''; return; }
+  const recent = rows.slice(-6);
+  const html = recent.map((r,i,arr) => {
+    const prev=arr[i-1];
+    const t=(r['수집시간']||'').split(' ');
+    const tl=`${t[0]?t[0].slice(5):''} ${t[1]?t[1].slice(0,5):''} ${timingBadge(r['타이밍']||'')}`;
+    const bnF=parsePct(r['펀딩_바이낸스']), liqR=r['청산비율']||'', liqPct=parseFloat(liqR)||0, isLong=liqR.includes('롱');
+    const btcNow=parseBtcPrice(r['BTC_현재가']), btcPrev=prev?parseBtcPrice(prev['BTC_현재가']):null;
+    const btcChg=btcNow!==null&&btcPrev!==null?btcNow-btcPrev:null;
+    let cls='safe', parts=[];
+    if(bnF!==null){if(bnF<=-0.003){parts.push(`바이낸스 펀딩 ${bnF.toFixed(3)}% — 숏 부담 높음`);cls='danger';}else if(bnF>=0.003){parts.push(`바이낸스 펀딩 +${bnF.toFixed(3)}% — 롱 부담 높음`);cls='warn';}else parts.push(`바이낸스 펀딩 ${bnF.toFixed(3)}% — 중립`);}
+    if(liqPct>80){parts.push(`${isLong?'롱':'숏'} 청산 ${liqPct.toFixed(1)}% — 강한 청산 압력`);cls='danger';}
+    else if(liqPct>60) parts.push(`${isLong?'롱':'숏'} 청산 ${liqPct.toFixed(1)}%`);
+    if(btcChg!==null) parts.push(`BTC ${btcChg>=0?'▲ +':'▼ '}${formatPrice(Math.abs(btcChg))}`);
+    return `<div class="interp-card ${cls}"><div class="interp-time">${tl}</div><div class="interp-text">${parts.length?parts.join(' &nbsp;|&nbsp; '):'특이사항 없음'}</div></div>`;
+  }).join('');
+  document.getElementById('interpretCards').innerHTML = html;
+}
+
+// ── 전략 판단 ─────────────────────────────────────────────
+function renderStrategy() {
+  const rows = getFilteredRows();
+  if (!rows.length) { document.getElementById('strategyCards').innerHTML=''; return; }
+  const latest=rows[rows.length-1], prev=rows[rows.length-2];
+  const bnF=parsePct(latest['펀딩_바이낸스']), okF=parsePct(latest['펀딩_OKX']), byF=parsePct(latest['펀딩_바이비트']);
+  const liqR=latest['청산비율']||'', liqPct=parseFloat(liqR)||0, isLong=liqR.includes('롱');
+  const vals=[bnF,okF,byF].filter(v=>v!==null);
+  const gap=vals.length>=2?+(Math.max(...vals)-Math.min(...vals)).toFixed(4):null;
+  const oiArr=rows.slice(-3).map(r=>parseFloat(r['미결제_BTC'])||null).filter(v=>v!==null);
+  const oiDec=oiArr.length>=2&&oiArr.every((v,i)=>i===0||v<=oiArr[i-1]);
+  const signals=[];
+  if(bnF!==null&&bnF<=-0.007) signals.push({icon:'🔴',title:'기관 헤지 심화',cls:'danger',desc:`바이낸스 펀딩비 <span class="strategy-val">${bnF.toFixed(3)}%</span> — 숏 포지션 비용 극대화. 기관 헤지 수요 급증.`});
+  else if(bnF!==null&&bnF>=0) signals.push({icon:'🟢',title:'롱 우세',cls:'safe',desc:`바이낸스 펀딩비 <span class="strategy-val">+${bnF.toFixed(3)}%</span> — 롱 포지션이 숏에 수수료 지급 중.`});
+  if(gap!==null&&Math.abs(gap)>=0.01) signals.push({icon:'🔴',title:'거래소 괴리 위험',cls:'danger',desc:`펀딩비 최대-최소 차이 <span class="strategy-val">${gap.toFixed(3)}%p</span> — 거래소 간 심리 괴리. 아비트라지 압력 증가.`});
+  if(isLong&&liqPct>=90) signals.push({icon:'🔴',title:'롱 과열 경보',cls:'danger',desc:`롱 청산 비율 <span class="strategy-val">${liqPct.toFixed(1)}%</span> — 단기 하방 압력 주의.`});
+  if(oiDec) signals.push({icon:'🟡',title:'포지션 정리 중',cls:'warn',desc:`미결제약정 연속 감소 (${oiArr.map(v=>v+'B').join(' → ')}) — 시장 참여자 포지션 축소.`});
+  if(!signals.length) signals.push({icon:'⚪',title:'특이 신호 없음',cls:'',desc:'현재 주요 임계값을 벗어난 지표가 없습니다.'});
+  document.getElementById('strategyCards').innerHTML = signals.map(s=>`
+    <div class="strategy-card interp-card ${s.cls}">
+      <div class="strategy-icon">${s.icon}</div>
+      <div><div class="strategy-title">${s.title}</div><div class="strategy-desc">${s.desc}</div></div>
+    </div>`).join('');
+}
+
+// ── AI 프롬프트 복사 ──────────────────────────────────────
+async function copyPrompt() {
+  const rows = getFilteredRows();
+  if (!rows.length) { alert('데이터가 없습니다.'); return; }
+  const btn = document.getElementById('copyPromptBtn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 복사 중...';
+  const recent=rows.slice(-15);
+  const summary=recent.map(r=>{
+    const t=(r['수집시간']||'').slice(5);
+    return `[${t}] BTC:${r['BTC_현재가']||'-'} | 펀딩(바이낸스:${r['펀딩_바이낸스']||'-'} OKX:${r['펀딩_OKX']||'-'} 바이비트:${r['펀딩_바이비트']||'-'}) | 청산비율:${r['청산비율']||'-'} | 청산금액:${r['청산금액']||'-'} | OI:${r['미결제_BTC']||'-'} | 롱숏:${r['롱숏_롱']||'-'}/${r['롱숏_숏']||'-'} | 타이밍:${r['타이밍']||'-'}`;
+  }).join('\n');
+  const latest=recent[recent.length-1];
+  const vals=[parsePct(latest['펀딩_바이낸스']),parsePct(latest['펀딩_OKX']),parsePct(latest['펀딩_바이비트'])].filter(v=>v!==null);
+  const gap=vals.length>=2?+(Math.max(...vals)-Math.min(...vals)).toFixed(4):0;
+  const bnF=parsePct(latest['펀딩_바이낸스']), liqR=latest['청산비율']||'', liqPct=parseFloat(liqR)||0, isLong=liqR.includes('롱');
+  const oiArr=rows.slice(-3).map(r=>parseFloat(r['미결제_BTC'])||null).filter(v=>v!==null);
+  const oiDec=oiArr.length>=2&&oiArr.every((v,i)=>i===0||v<=oiArr[i-1]);
+  const signals=[];
+  if(bnF!==null&&bnF<=-0.007) signals.push('🔴 기관 헤지 심화 (바이낸스 펀딩비 '+bnF.toFixed(3)+'%)');
+  else if(bnF!==null&&bnF>=0) signals.push('🟢 롱 우세 (바이낸스 펀딩비 +'+bnF.toFixed(3)+'%)');
+  if(gap>=0.01) signals.push('🔴 거래소 괴리 위험 (괴리폭 '+gap.toFixed(3)+'%p)');
+  if(isLong&&liqPct>=90) signals.push('🔴 롱 과열 경보 (롱 청산 '+liqPct.toFixed(1)+'%)');
+  if(oiDec) signals.push('🟡 포지션 정리 중 (OI 연속 감소)');
+  const btcPrice=parseBtcPrice(latest['BTC_현재가'])||0;
+  const fmt=v=>'$'+Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  const longT1=fmt(btcPrice*1.010), longT2=fmt(btcPrice*1.015), longStop=fmt(btcPrice*0.994);
+  const shortT1=fmt(btcPrice*0.990), shortT2=fmt(btcPrice*0.985), shortStop=fmt(btcPrice*1.005);
+
+  const prompt=`당신은 암호화폐 선물 시장 전문 분석가입니다. 아래 코인니스에서 수집한 BTC 선물 지표 데이터를 심층 분석해주세요.
+
+## 수집 데이터 (최근 ${recent.length}개 시점, 1시간 기준)
+${summary}
+
+## 현재 주요 수치 (최신 시점)
+- BTC 현재가: ${latest['BTC_현재가']||'-'}
+- 바이낸스 펀딩비: ${latest['펀딩_바이낸스']||'-'}
+- OKX 펀딩비: ${latest['펀딩_OKX']||'-'}
+- 바이비트 펀딩비: ${latest['펀딩_바이비트']||'-'}
+- 거래소 간 괴리폭: ${gap.toFixed(3)}%p
+- 청산비율: ${latest['청산비율']||'-'}
+- 청산금액: ${latest['청산금액']||'-'}
+- 미결제약정(BTC): ${latest['미결제_BTC']||'-'}
+- 롱숏 비율: ${latest['롱숏_롱']||'-'} / ${latest['롱숏_숏']||'-'}
+- 타이밍: ${latest['타이밍']||'-'}
+
+## 규칙 기반 감지 신호
+${signals.length?signals.join('\n'):'⚪ 특이 신호 없음'}
+
+## 분석 요청
+
+1. **시장 심리 판단** — 펀딩비 추이와 롱숏 비율 기반
+2. **청산 압력 분석** — 청산 방향과 규모의 의미
+3. **거래소 괴리 해석** — 거래소 간 펀딩비 차이의 시사점
+4. **미결제약정 흐름** — OI 변화가 나타내는 포지션 동향
+
+5. **단기 시나리오 A/B + 권장 포지션**
+
+아래 데이터를 분석해서 "시나리오 A/B + 권장 포지션" 카드로 시각화해줘.
+
+[분석 데이터]
+- BTC 현재가: ${fmt(btcPrice)}
+- 롱 목표가: ${longT1} ~ ${longT2} (현재가 +1%~+1.5%)
+- 롱 손절선: ${longStop} (현재가 -0.6%)
+- 숏 목표가: ${shortT1} ~ ${shortT2} (현재가 -1%~-1.5%)
+- 숏 손절선: ${shortStop} (현재가 +0.5%)
+
+카드 구성:
+- 좌측: 시나리오 A (반등) — 확률 / 조건(충족여부 표시) / 목표가 / 진입조건 / 손절선 / 주의사항
+- 우측: 시나리오 B (하락) — 확률 / 조건(충족여부 표시) / 목표가 / 진입조건 / 손절선 / 주의사항 (펀딩비 보유비용 포함)
+- 하단: 공통 판단 기준 (핵심 지표 2개 + 관망 조건)
+
+스타일 조건:
+- 시나리오 A: 초록색 테두리 (#22c55e), 조건 앞 ✓/✗ 아이콘
+- 시나리오 B: 빨간색 테두리 (#f04444), 조건 앞 ✓/✗ 아이콘
+- 확률 배지: 우측 상단 둥근 배지
+- 목표가: 큰 폰트로 강조
+- 권장 포지션 박스: 카드 하단 반투명 배경 박스
+
+6. **핵심 리스크** — 현재 가장 주목해야 할 위험 요소와 대응 방향
+
+1~4번과 6번은 구체적인 수치를 인용하며 2~4문장으로 작성해주세요.`;
+
+  try {
+    await navigator.clipboard.writeText(prompt);
+  } catch {
+    const ta=document.createElement('textarea');
+    ta.value=prompt; ta.style.cssText='position:fixed;top:0;left:0;opacity:0;';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+  }
+  document.getElementById('aiResultWrap').style.display='block';
+  document.getElementById('aiResultWrap').scrollIntoView({behavior:'smooth',block:'start'});
+  btn.innerHTML='<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> 복사 완료!';
+  setTimeout(()=>{btn.innerHTML='<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg> AI 분석 프롬프트 복사';btn.disabled=false;},2000);
+}
+
+// ── AI 접기/펼치기 ────────────────────────────────────────
+function toggleAIResult() {
+  _aiCollapsed=!_aiCollapsed;
+  document.getElementById('aiResultBody').style.display=_aiCollapsed?'none':'block';
+  document.getElementById('aiToggleBtn').innerHTML=_aiCollapsed
+    ?'<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="transform:rotate(-90deg)"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg> 펼치기'
+    :'<svg id="aiToggleIcon" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg> 접기';
+}
+
+// ── CSV 내보내기 ──────────────────────────────────────────
+function exportCSV() {
+  if (!allData.length) { alert('데이터가 없습니다.'); return; }
+  let rows=[...allData].sort((a,b)=>(a['수집시간']||'').localeCompare(b['수집시간']||''));
+  if (currentPeriod>0) {
+    const now=new Date(), cutoff=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    cutoff.setDate(cutoff.getDate()-(currentPeriod-1));
+    rows=rows.filter(d=>new Date((d['수집시간']||'').replace(' ','T'))>=cutoff);
+  }
+  if (!rows.length) { alert('해당 기간의 데이터가 없습니다.'); return; }
+  const headers=Object.keys(rows[0]);
+  const csv=[headers.join(','),...rows.map(r=>headers.map(h=>{const v=r[h]??'';return(String(v).includes(',')||String(v).includes('"'))?`"${String(v).replace(/"/g,'""')}"`:v;}).join(','))];
+  const label=currentPeriod===0?'전체':currentPeriod===1?'1일':currentPeriod===7?'7일':currentPeriod===30?'30일':'90일';
+  const date=new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const blob=new Blob(['\uFEFF'+csv.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`funding_data_v2_${label}_${date}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+// ── 실시간 BTC 가격 (Binance Futures REST API) ───────────
+var _btcPrevPrice = null;
+var _btcRtInterval = null;
+
+function fmtP(v) {
+  return '$' + Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');
+}
+
+async function fetchBTCFutures() {
+  const APIS = [
+    'https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=BTCUSDT',
+    'https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT',
+  ];
+  for (let i = 0; i < APIS.length; i++) {
+    try {
+      const res = await fetch(APIS[i], { cache: 'no-store' });
+      if (!res.ok) continue;
+      const d = await res.json();
+      const price  = parseFloat(d.lastPrice);
+      const chgPct = parseFloat(d.priceChangePercent);
+      if (isNaN(price)) continue;
+
+      document.getElementById('btcRealtime').style.display = 'flex';
+      document.getElementById('btcRtPrice').textContent  = fmtP(price);
+
+      const sign = chgPct >= 0 ? '+' : '';
+      const chgEl = document.getElementById('btcRtChange');
+      chgEl.textContent = `${sign}${chgPct.toFixed(2)}%`;
+      chgEl.className   = 'change ' + (chgPct > 0 ? 'up' : chgPct < 0 ? 'dn' : 'flat');
+
+      const now = new Date();
+      document.getElementById('btcRtUpdated').textContent =
+        `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')} 기준`;
+
+      _btcPrevPrice = price;
+      return; // 성공 시 종료
+    } catch(e) {
+      // 조용히 다음 API로 fallback (경고 없음)
+    }
+  }
+}
+
+function startBTCRealtime() {
+  fetchBTCFutures();
+  if (_btcRtInterval) clearInterval(_btcRtInterval);
+  _btcRtInterval = setInterval(fetchBTCFutures, 10000); // 10초마다 갱신
+}
+
+startBTCRealtime();
+
+// ── 카운트다운 ────────────────────────────────────────────
+function startCountdown() {
+  if (_cdInterval) clearInterval(_cdInterval);
+  function tick() {
+    const now=new Date(), kst=new Date(now.toLocaleString('en-US',{timeZone:'Asia/Seoul'}));
+    const total=kst.getHours()*3600+kst.getMinutes()*60+kst.getSeconds();
+    const targets=[1*3600,9*3600,17*3600];
+    let next=targets.find(t=>t>total);
+    if(next===undefined) next=targets[0]+86400;
+    const rem=next-total;
+    const rh=String(Math.floor(rem/3600)).padStart(2,'0');
+    const rm=String(Math.floor((rem%3600)/60)).padStart(2,'0');
+    const rs=String(rem%60).padStart(2,'0');
+    document.getElementById('cdTimer').textContent=`${rh}:${rm}:${rs}`;
+    const map={[1*3600]:'01:00 KST (1차)',[9*3600]:'09:00 KST (2차)',[17*3600]:'17:00 KST (3차)'};
+    document.getElementById('cdNext').textContent='다음: '+(map[targets.find(t=>t>total)]||map[targets[0]]);
+  }
+  tick(); _cdInterval=setInterval(tick,1000);
+}
+</script>
+</body>
+</html>
