@@ -99,7 +99,7 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
 .stat-v{font-size:17px;font-weight:700;font-family:'JetBrains Mono',monospace;}
 
 /* 요약 카드 그리드 */
-.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.summary-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;}
 .sum-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;}
 .sum-card.danger{border-color:rgba(240,68,68,.5);background:rgba(240,68,68,.06);}
 .sum-card.warn-card{border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.06);}
@@ -288,7 +288,7 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
 <header>
   <div class="dot"></div>
   <h1>코인니스 선물 지표</h1>
-  <span class="badge">v2.001</span>
+  <span class="badge">v2.002</span>
   <span class="pc-only">펀딩피 기준 + 시간대별 수집</span>
   <div class="header-right">
     <!-- 실시간 BTC -->
@@ -861,6 +861,7 @@ function renderSummaryCards() {
   const bnNeg=bnF!==null&&bnF<0;
   const oiArr=rows.slice(-3).map(r=>parseFloat(r['미결제_BTC'])||null).filter(v=>v!==null);
   const oiDec=oiArr.length>=2&&oiArr.every((v,i)=>i===0||v<=oiArr[i-1]);
+  const kimchi=parsePct(latest['김치프리미엄'])||0;
 
   document.getElementById('summaryCards').innerHTML = `
     <div class="sum-card${bnNeg?' danger':''}">
@@ -884,6 +885,23 @@ function renderSummaryCards() {
       <div class="sum-label">미결제약정 (BTC)</div>
       <div class="sum-val">${latest['미결제_BTC']||'-'}</div>
       <div class="sum-sub ${oiDec?'sum-down':''}">${oiDec?'▼ 연속 감소 중':'안정'}</div>
+    </div>
+    <div class="sum-card${kimchi>=10?' danger':kimchi>=5?' danger':kimchi>=3?' warn-card':kimchi<0?' sum-card':'' }">
+      <div class="sum-label">김치프리미엄</div>
+      <div class="sum-val ${kimchi>=1?'sum-up':kimchi<0?'sum-down':''}">
+        ${latest['김치프리미엄']||'-'}
+      </div>
+      <div class="sum-sub">
+        ${(()=>{
+          if (!latest['김치프리미엄']) return '-';
+          if (kimchi < 0)   return '🔵 역프리미엄';
+          if (kimchi < 1)   return '⚪ 안정';
+          if (kimchi < 3)   return '🟢 보통';
+          if (kimchi < 5)   return '🟡 과열 주의';
+          if (kimchi < 10)  return '🟠 과열';
+          return '🔴 극과열';
+        })()}
+      </div>
     </div>`;
 }
 
@@ -1043,10 +1061,16 @@ async function copyPrompt() {
   if (!rows.length) { alert('데이터가 없습니다.'); return; }
   const btn = document.getElementById('copyPromptBtn');
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 복사 중...';
+
+  // 생성 시각 + 요일
+  const now = new Date();
+  const days = ['일','월','화','수','목','금','토'];
+  const dayStr = days[now.getDay()];
+  const genTime = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} (${dayStr}) ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} KST`;
   const recent=rows.slice(-15);
   const summary=recent.map(r=>{
     const t=(r['수집시간']||'').slice(5);
-    return `[${t}] BTC:${r['BTC_현재가']||'-'} | 펀딩(바이낸스:${r['펀딩_바이낸스']||'-'} OKX:${r['펀딩_OKX']||'-'} 바이비트:${r['펀딩_바이비트']||'-'}) | 청산비율:${r['청산비율']||'-'} | 청산금액:${r['청산금액']||'-'} | OI:${r['미결제_BTC']||'-'} | 롱숏:${r['롱숏_롱']||'-'}/${r['롱숏_숏']||'-'} | 타이밍:${r['타이밍']||'-'}`;
+    return `[${t}] BTC:${r['BTC_현재가']||'-'} | 펀딩(바이낸스:${r['펀딩_바이낸스']||'-'} OKX:${r['펀딩_OKX']||'-'} 바이비트:${r['펀딩_바이비트']||'-'}) | 청산비율:${r['청산비율']||'-'} | 청산금액:${r['청산금액']||'-'} | OI:${r['미결제_BTC']||'-'} | 롱숏:${r['롱숏_롱']||'-'}/${r['롱숏_숏']||'-'} | 김프:${r['김치프리미엄']||'-'} | 타이밍:${r['타이밍']||'-'}`;
   }).join('\n');
   const latest=recent[recent.length-1];
   const vals=[parsePct(latest['펀딩_바이낸스']),parsePct(latest['펀딩_OKX']),parsePct(latest['펀딩_바이비트'])].filter(v=>v!==null);
@@ -1076,6 +1100,10 @@ async function copyPrompt() {
 
   const prompt=`당신은 암호화폐 선물 시장 전문 분석가입니다. 아래 코인니스에서 수집한 BTC 선물 지표 데이터를 심층 분석해주세요.
 
+## 분석 요청 시각
+- 생성일시: ${genTime}
+- 최신 수집시각: ${latest['수집시간']||'-'}
+
 ## 수집 데이터 (최근 ${recent.length}개 시점, 1시간 기준)
 ${summary}
 
@@ -1091,6 +1119,7 @@ ${rtDiff !== null ? `- 수집 후 가격 변화: ${rtDiff >= 0 ? '▲ +' : '▼ 
 - 청산금액: ${latest['청산금액']||'-'} ※ 수집 시점 기준
 - 미결제약정(BTC): ${latest['미결제_BTC']||'-'} ※ 수집 시점 기준
 - 롱숏 비율: ${latest['롱숏_롱']||'-'} / ${latest['롱숏_숏']||'-'} ※ 수집 시점 기준
+- 김치프리미엄: ${latest['김치프리미엄']||'-'} (업비트 ${latest['업비트_KRW']||'-'}원, 환율 ${latest['달러환율']||'-'})
 - 타이밍: ${latest['타이밍']||'-'}
 
 ## 규칙 기반 감지 신호
