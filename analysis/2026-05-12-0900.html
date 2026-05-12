@@ -1,0 +1,776 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BTC 선물 시장 심층 분석</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070b14;
+    --bg2: #0d1424;
+    --bg3: #111c30;
+    --border: #1e3050;
+    --border2: #243858;
+    --green: #22c55e;
+    --green-dim: rgba(34,197,94,0.12);
+    --green-glow: rgba(34,197,94,0.25);
+    --red: #f04444;
+    --red-dim: rgba(240,68,68,0.12);
+    --red-glow: rgba(240,68,68,0.25);
+    --gold: #f5c542;
+    --blue: #3b82f6;
+    --blue-dim: rgba(59,130,246,0.12);
+    --cyan: #06b6d4;
+    --text: #e2eaf5;
+    --text2: #8ba0be;
+    --text3: #4e6785;
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Rajdhani', sans-serif;
+    --body: 'Noto Sans KR', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    min-height: 100vh;
+    padding: 32px 20px 60px;
+    background-image:
+      radial-gradient(ellipse 60% 40% at 20% 10%, rgba(59,130,246,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 30% at 80% 80%, rgba(34,197,94,0.04) 0%, transparent 60%);
+  }
+
+  /* ─── HEADER ─── */
+  .header {
+    text-align: center;
+    margin-bottom: 36px;
+    position: relative;
+  }
+  .header-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--cyan);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    opacity: 0.8;
+  }
+  .header h1 {
+    font-family: var(--display);
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #fff;
+    line-height: 1;
+  }
+  .header h1 span { color: var(--gold); }
+  .header-sub {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 8px;
+    font-family: var(--mono);
+  }
+  .price-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 40px;
+    padding: 8px 20px;
+    margin-top: 16px;
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .price-badge .price { color: var(--gold); font-size: 20px; font-weight: 600; }
+  .price-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+
+  /* ─── SECTION TITLE ─── */
+  .section-title {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title::after { content:''; flex:1; height:1px; background: linear-gradient(to right, var(--border2), transparent); }
+
+  /* ─── ANALYSIS GRID ─── */
+  .analysis-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+    margin-bottom: 32px;
+  }
+
+  .analysis-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .analysis-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--blue), transparent);
+  }
+  .analysis-card:hover { border-color: var(--border2); }
+
+  .card-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .card-title {
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--cyan);
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+  }
+  .card-body {
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text2);
+  }
+  .card-body strong { color: var(--text); }
+  .card-body .hl { color: var(--gold); font-family: var(--mono); font-weight: 600; }
+  .card-body .up { color: var(--green); }
+  .card-body .dn { color: var(--red); }
+
+  /* ─── SCENARIO CARDS ─── */
+  .scenario-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 20px;
+  }
+  @media(max-width: 700px) { .scenario-wrap { grid-template-columns: 1fr; } }
+
+  .sc-card {
+    border-radius: 16px;
+    border: 2px solid;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .sc-card.long { border-color: var(--green); background: linear-gradient(160deg, rgba(34,197,94,0.06) 0%, var(--bg2) 50%); }
+  .sc-card.short { border-color: var(--red); background: linear-gradient(160deg, rgba(240,68,68,0.06) 0%, var(--bg2) 50%); }
+
+  .sc-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .sc-label {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .long .sc-label { color: var(--green); }
+  .short .sc-label { color: var(--red); }
+  .sc-sub { font-size: 11px; color: var(--text3); margin-top: 3px; font-family: var(--mono); }
+
+  .prob-badge {
+    border-radius: 30px;
+    padding: 6px 14px;
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+  .long .prob-badge { background: var(--green-dim); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .short .prob-badge { background: var(--red-dim); color: var(--red); border: 1px solid rgba(240,68,68,0.3); }
+
+  .sc-body { padding: 18px 20px; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+
+  .target-block { text-align: center; padding: 14px; border-radius: 10px; }
+  .long .target-block { background: var(--green-dim); border: 1px solid rgba(34,197,94,0.15); }
+  .short .target-block { background: var(--red-dim); border: 1px solid rgba(240,68,68,0.15); }
+  .target-label { font-size: 10px; color: var(--text3); letter-spacing: 1.5px; font-family: var(--mono); margin-bottom: 4px; }
+  .target-price {
+    font-family: var(--display);
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .long .target-price { color: var(--green); }
+  .short .target-price { color: var(--red); }
+  .target-range { font-size: 11px; color: var(--text3); margin-top: 2px; font-family: var(--mono); }
+
+  .cond-block h4 {
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 1.5px;
+    font-family: var(--mono);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .cond-list { display: flex; flex-direction: column; gap: 6px; }
+  .cond-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text2);
+    line-height: 1.5;
+  }
+  .cond-icon { flex-shrink: 0; font-size: 13px; margin-top: 0px; }
+  .cond-icon.ok { color: var(--green); }
+  .cond-icon.no { color: var(--red); }
+  .cond-icon.maybe { color: var(--gold); }
+
+  .entry-block {
+    background: var(--bg3);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .entry-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .entry-row:last-child { border-bottom: none; }
+  .entry-key { color: var(--text3); font-family: var(--mono); font-size: 11px; }
+  .entry-val { font-family: var(--mono); font-weight: 600; font-size: 12px; }
+  .ev-green { color: var(--green); }
+  .ev-red { color: var(--red); }
+  .ev-gold { color: var(--gold); }
+  .ev-blue { color: var(--blue); }
+
+  .warn-block {
+    background: rgba(245,197,66,0.07);
+    border: 1px solid rgba(245,197,66,0.2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 11.5px;
+    color: var(--gold);
+    line-height: 1.6;
+  }
+  .warn-block::before { content: '⚠ '; }
+
+  .pos-box {
+    margin: 18px 20px 20px;
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .long .pos-box { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); }
+  .short .pos-box { background: rgba(240,68,68,0.15); border: 1px solid rgba(240,68,68,0.3); }
+  .pos-label { font-size: 11px; color: var(--text2); font-family: var(--mono); letter-spacing: 1px; }
+  .pos-val { font-family: var(--display); font-size: 16px; font-weight: 700; }
+  .long .pos-val { color: var(--green); }
+  .short .pos-val { color: var(--red); }
+  .pos-rr { font-family: var(--mono); font-size: 12px; color: var(--text2); }
+
+  /* ─── BOTTOM PANEL ─── */
+  .bottom-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin-bottom: 20px;
+  }
+  .bottom-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  @media(max-width: 650px) { .bottom-grid { grid-template-columns: 1fr; } }
+
+  .bottom-item h4 {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--text3);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .indicator-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .indicator-row:last-child { border-bottom: none; }
+  .ind-name { color: var(--text2); }
+  .ind-val { font-family: var(--mono); font-weight: 600; }
+  .ind-bar {
+    height: 3px;
+    border-radius: 2px;
+    margin-top: 6px;
+    background: var(--bg3);
+    position: relative;
+    overflow: hidden;
+  }
+  .ind-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s ease;
+  }
+
+  .watch-cond {
+    background: rgba(59,130,246,0.08);
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 12px;
+    color: var(--text2);
+    line-height: 1.7;
+  }
+  .watch-cond strong { color: var(--blue); }
+
+  /* ─── RISK SECTION ─── */
+  .risk-card {
+    background: var(--bg2);
+    border: 1px solid rgba(240,68,68,0.3);
+    border-radius: 14px;
+    padding: 22px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .risk-card::before {
+    content:'';
+    position: absolute; top:0; left:0; right:0; height:2px;
+    background: linear-gradient(90deg, var(--red), transparent);
+  }
+  .risk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 16px; }
+  .risk-item {
+    background: rgba(240,68,68,0.05);
+    border: 1px solid rgba(240,68,68,0.15);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .risk-item h5 {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--red);
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .risk-item p { font-size: 12px; color: var(--text2); line-height: 1.7; }
+  .risk-item p strong { color: var(--text); }
+
+  /* ─── OI CHART MINI ─── */
+  .oi-mini {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 32px;
+    margin-top: 8px;
+  }
+  .oi-bar {
+    flex: 1;
+    border-radius: 2px 2px 0 0;
+    background: var(--blue);
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    min-width: 0;
+  }
+  .oi-bar:last-child { opacity: 1; }
+
+  /* ─── FUNDING DOTS ─── */
+  .funding-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .f-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--bg3);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .f-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .f-pos { background: var(--green); }
+  .f-neg { background: var(--red); }
+  .f-zero { background: var(--text3); }
+
+  /* ─── DIVIDER ─── */
+  .divider { height: 1px; background: linear-gradient(to right, transparent, var(--border2), transparent); margin: 28px 0; }
+
+  /* ─── SCROLL HINT ─── */
+  .timestamp {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 30px;
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-tag">Futures Market Intelligence</div>
+  <h1>BTC <span>선물 시장</span> 심층 분석</h1>
+  <div class="header-sub">05-12 08:00 KST · 8개 시점 집계 · 1H 기준</div>
+  <div style="margin-top:14px;">
+    <div class="price-badge">
+      <div class="dot"></div>
+      <span style="color:var(--text2);font-size:12px;">LIVE APPROX</span>
+      <span class="price">$81,224</span>
+      <span style="color:var(--text3);font-size:11px;">↓ 수집 마감 $81,810</span>
+    </div>
+  </div>
+</div>
+
+<!-- ANALYSIS 1~4 -->
+<div class="section-title">01 — 시장 심층 분석</div>
+<div class="analysis-grid">
+
+  <!-- 1. 시장 심리 -->
+  <div class="analysis-card">
+    <div class="card-num">ANALYSIS 01</div>
+    <div class="card-title">📊 시장 심리 판단</div>
+    <div class="card-body">
+      펀딩비는 8시간 전 바이낸스 <span class="hl">+0.005%</span> 피크에서 현재 <span class="hl">0.000%</span>으로 빠르게 수렴하며 <strong>롱 과열이 해소</strong>되는 과정을 보입니다. 
+      롱숏 비율은 <span class="hl">49.79% / 50.21%</span>으로 거의 균형 상태이며, 정산 이후 <strong>숏 우세로 미세 전환</strong>된 점이 주목됩니다. 
+      전반적으로 단기 추세에 대한 <span class="up">롱</span>/<span class="dn">숏</span> 방향 확신이 약화된 <strong>중립~약 숏 심리</strong>가 지배적입니다.
+    </div>
+    <div class="funding-row">
+      <div class="f-chip"><div class="f-dot f-zero"></div>바이낸스 0.000%</div>
+      <div class="f-chip"><div class="f-dot f-neg"></div>OKX -0.006%</div>
+      <div class="f-chip"><div class="f-dot f-pos"></div>바이비트 +0.001%</div>
+    </div>
+  </div>
+
+  <!-- 2. 청산 압력 -->
+  <div class="analysis-card">
+    <div class="card-num">ANALYSIS 02</div>
+    <div class="card-title">💥 청산 압력 분석</div>
+    <div class="card-body">
+      정산 전후로 청산 방향이 <strong>롱(87.71%) → 숏(96.17%)</strong>으로 극적 역전되며 <span class="up">가격이 $80,911→$81,884로 상승</span>했고, 이는 숏 포지션의 강제 청산이 가격 상승을 이끈 전형적인 <strong>숏 스퀴즈</strong> 패턴입니다. 
+      이후 청산 금액이 <span class="hl">$41.05M → $5.44M → $3.21M</span>으로 급감하며 청산 압력 자체가 소멸 중입니다. 
+      현 시점 소규모 청산은 추가 방향성 에너지가 부족함을 의미하며, <strong>박스권 소강 국면</strong>에 진입했음을 시사합니다.
+    </div>
+  </div>
+
+  <!-- 3. 거래소 괴리 -->
+  <div class="analysis-card">
+    <div class="card-num">ANALYSIS 03</div>
+    <div class="card-title">🔀 거래소 괴리 해석</div>
+    <div class="card-body">
+      OKX 펀딩비가 <span class="hl">-0.006%</span>로 타 거래소 대비 현저히 낮아 <strong>거래소 간 괴리폭 0.007%p</strong>가 형성됐습니다. 
+      이는 OKX에서 <strong>숏 포지션이 상대적으로 우세</strong>하거나, OKX 유저 베이스가 시장 하락을 더 강하게 베팅하고 있음을 의미합니다. 
+      바이낸스·바이비트 중립~약 롱 대비 OKX의 음전 펀딩은 <strong>스마트머니의 헤지 신호</strong>로 해석될 수 있어, 단기 상방 돌파에 대한 경계 요인입니다.
+    </div>
+  </div>
+
+  <!-- 4. OI 흐름 -->
+  <div class="analysis-card">
+    <div class="card-num">ANALYSIS 04</div>
+    <div class="card-title">📈 미결제약정(OI) 흐름</div>
+    <div class="card-body">
+      OI가 <span class="hl">$10.51B → $10.83B</span>으로 8시간 동안 <strong>+3.04% 증가</strong>했습니다. 가격 상승과 동반한 OI 증가는 신규 롱 포지션 유입을 의미하지만, 청산금액 급감 구간에서도 OI가 <span class="hl">$10.82B→$10.83B</span>로 유지되며 <strong>청산 후 재진입</strong>이 활발함을 보입니다. 
+      총 OI 규모 $10.83B은 정산 전 $10.51B 대비 확연히 증가, 시장 참여자들이 방향성 베팅을 지속 확대하고 있어 <strong>변동성 확대 위험이 잠재</strong>합니다.
+    </div>
+    <div class="oi-mini">
+      <div class="oi-bar" style="height:52%;" title="10.51B"></div>
+      <div class="oi-bar" style="height:56%;" title="10.56B"></div>
+      <div class="oi-bar" style="height:59%;" title="10.59B"></div>
+      <div class="oi-bar" style="height:68%;" title="10.66B"></div>
+      <div class="oi-bar" style="height:68%;" title="10.66B"></div>
+      <div class="oi-bar" style="height:82%;" title="10.78B"></div>
+      <div class="oi-bar" style="height:91%;" title="10.82B"></div>
+      <div class="oi-bar" style="height:100%;" title="10.83B"></div>
+    </div>
+    <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:4px;">OI 시계열 00:00 → 08:00</div>
+  </div>
+
+</div>
+
+<!-- SCENARIO CARDS -->
+<div class="divider"></div>
+<div class="section-title">05 — 단기 시나리오 A / B</div>
+
+<div class="scenario-wrap">
+
+  <!-- SCENARIO A: LONG -->
+  <div class="sc-card long">
+    <div class="sc-header">
+      <div>
+        <div class="sc-label">▲ 시나리오 A — 반등</div>
+        <div class="sc-sub">SHORT SQUEEZE CONTINUATION</div>
+      </div>
+      <div class="prob-badge">45%</div>
+    </div>
+
+    <div class="sc-body">
+
+      <!-- 목표가 -->
+      <div class="target-block">
+        <div class="target-label">TARGET ZONE</div>
+        <div class="target-price">$82,628</div>
+        <div class="target-range">확장 목표 → $83,037 &nbsp;|&nbsp; +1.0% ~ +1.5%</div>
+      </div>
+
+      <!-- 조건 -->
+      <div class="cond-block">
+        <h4>진입 조건 체크</h4>
+        <div class="cond-list">
+          <div class="cond-item"><span class="cond-icon maybe">◐</span><span>OI $10.83B 유지 + 추가 증가 시 포지션 유입 확인</span></div>
+          <div class="cond-item"><span class="cond-icon ok">✓</span><span>숏 청산 비율 80%+ 지속 → 숏 스퀴즈 환경 유효</span></div>
+          <div class="cond-item"><span class="cond-icon no">✗</span><span>바이낸스 펀딩비 <strong>0.000%</strong> — 롱 프리미엄 부재, 매수세 소극적</span></div>
+          <div class="cond-item"><span class="cond-icon no">✗</span><span>OKX 펀딩 -0.006% — 스마트머니 숏 헤지 신호</span></div>
+          <div class="cond-item"><span class="cond-icon ok">✓</span><span>롱숏 비율 균형(49.79/50.21) — 급격한 숏 쏠림 없음</span></div>
+        </div>
+      </div>
+
+      <!-- 진입/손절 -->
+      <div class="entry-block">
+        <div class="entry-row">
+          <span class="entry-key">진입 조건</span>
+          <span class="entry-val ev-blue">$81,900 ~ $82,100 돌파 확인</span>
+        </div>
+        <div class="entry-row">
+          <span class="entry-key">1차 목표</span>
+          <span class="entry-val ev-green">$82,628 &nbsp;<small style="color:var(--text3)">+1.0%</small></span>
+        </div>
+        <div class="entry-row">
+          <span class="entry-key">2차 목표</span>
+          <span class="entry-val ev-green">$83,037 &nbsp;<small style="color:var(--text3)">+1.5%</small></span>
+        </div>
+        <div class="entry-row">
+          <span class="entry-key">손절선</span>
+          <span class="entry-val ev-red">$81,319 &nbsp;<small style="color:var(--text3)">-0.6%</small></span>
+        </div>
+        <div class="entry-row">
+          <span class="entry-key">리스크/리워드</span>
+          <span class="entry-val ev-gold">1 : 1.67 ~ 2.5</span>
+        </div>
+      </div>
+
+      <!-- 주의사항 -->
+      <div class="warn-block">
+        정산 1시간 전 타이밍. OKX 음전 펀딩이 지속될 경우 상방 돌파 시도 후 되돌림 주의. $82,200 구간 저항 확인 필수.
+      </div>
+
+    </div>
+
+    <!-- 권장 포지션 박스 -->
+    <div class="pos-box">
+      <div>
+        <div class="pos-label">권장 포지션</div>
+        <div class="pos-val">⚡ LONG — 조건부 진입</div>
+      </div>
+      <div class="pos-rr">R:R = 1:1.7+</div>
+    </div>
+  </div>
+
+  <!-- SCENARIO B: SHORT -->
+  <div class="sc-card short">
+    <div class="sc-header">
+      <div>
+        <div class="sc-label">▼ 시나리오 B — 하락</div>
+        <div class="sc-sub">FUNDING FLUSH + OI UNWIND</div>
+      </div>
+      <div class="prob-badge">55%</div>
+    </div>
+
+    <div class="sc-body">
+
+      <!-- 목표가 -->
+      <div class="target-block">
+        <div class="target-label">TARGET ZONE</div>
+        <div class="target-price">$80,992</div>
+        <div class="target-range">확장 목표 → $80,583 &nbsp;|&nbsp; -1.0% ~ -1.5%</div>
+      </div>
+
+      <!-- 조건 -->
+      <div class="cond-block">
+        <h4>진입 조건 체크</h4>
+        <div class="cond-list">
+          <div class="cond-item"><span class="cond-icon ok">✓</span><span>OKX 펀딩 <strong>-0.006%</strong> — 숏 우세 지속 확인</span></div>
+          <div class="cond-item"><span class="cond-icon ok">✓</span><span>바이낸스 펀딩 0.000% 수렴 → 롱 프리미엄 소멸</span></div>
+          <div class="cond-item"><span class="cond-icon ok">✓</span><span>롱숏 50.21% 숏 우세 전환 — 포지션 방향성 숏 확인</span></div>
+          <div class="cond-item"><span class="cond-icon maybe">◐</span><span>청산금액 $3.21M 감소 → 추가 하방 에너지 제한적</span></div>
+          <div class="cond-item"><span class="cond-icon ok">✓</span><span>현재가 $81,224 → 수집 마감 $81,810 대비 이미 하락 진행</span></div>
+        </div>
+      </div>
+
+      <!-- 진입/손절 -->
+      <div class="entry-block">
+        <div class="entry-row">
+          <span class="entry-key">진입 조건</span>
+          <span class="entry-val ev-blue">$81,500 하방 이탈 또는 저항 확인 후</span>
+        </div>
+        <div class="entry-row">
+          <span class="entry-key">1차 목표</span>
+          <span class="entry-val ev-red">$80,992 &nbsp;<small style="color:var(--text3)">-1.0%</small></span>
+        </div>
+        <div class="entry-row">
+          <span class="entry-key">2차 목표</span>
+          <span class="entry-val ev-red">$80,583 &nbsp;<small style="color:var(--text3)">-1.5%</small></span>
+        </div>
+        <div class="entry-row">
+          <span class="entry-key">손절선</span>
+          <span class="entry-val ev-green">$82,219 &nbsp;<small style="color:var(--text3)">+0.5%</small></span>
+        </div>
+        <div class="entry-row">
+          <span class="entry-key">리스크/리워드</span>
+          <span class="entry-val ev-gold">1 : 2.0 ~ 3.0</span>
+        </div>
+      </div>
+
+      <!-- 펀딩 보유 비용 -->
+      <div class="entry-block" style="margin-top:0; background: rgba(240,68,68,0.07); border: 1px solid rgba(240,68,68,0.15);">
+        <div style="font-size:10px;color:var(--red);font-family:var(--mono);letter-spacing:1px;margin-bottom:6px;">⚡ 펀딩비 보유 비용</div>
+        <div class="entry-row">
+          <span class="entry-key">바이낸스 (8H)</span>
+          <span class="entry-val" style="color:var(--green);">0.000% — 숏 무비용</span>
+        </div>
+        <div class="entry-row">
+          <span class="entry-key">OKX (8H)</span>
+          <span class="entry-val" style="color:var(--green);">-0.006% — 숏 수취 ✓</span>
+        </div>
+        <div class="entry-row">
+          <span class="entry-key">바이비트 (8H)</span>
+          <span class="entry-val ev-red">+0.001% — 숏 지불</span>
+        </div>
+      </div>
+
+      <!-- 주의사항 -->
+      <div class="warn-block">
+        정산 1시간 전 자동 청산 폭발 위험. $81,000 지지선 강도 확인 필요. 롱 포지션 재유입 시 즉시 손절 대응.
+      </div>
+
+    </div>
+
+    <!-- 권장 포지션 박스 -->
+    <div class="pos-box">
+      <div>
+        <div class="pos-label">권장 포지션</div>
+        <div class="pos-val">🔻 SHORT — 우선 시나리오</div>
+      </div>
+      <div class="pos-rr">R:R = 1:2.0+</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM COMMON PANEL -->
+<div class="bottom-panel">
+  <div class="section-title" style="margin-bottom:16px;">공통 판단 기준</div>
+  <div class="bottom-grid">
+
+    <div class="bottom-item">
+      <h4>📌 핵심 지표 ①  — 펀딩 모니터링</h4>
+      <div class="indicator-row">
+        <span class="ind-name">바이낸스</span>
+        <span class="ind-val" style="color:var(--text2);">0.000% → 롱 확인 기준 +0.003%</span>
+      </div>
+      <div class="ind-bar"><div class="ind-bar-fill" style="width:0%;background:var(--green);"></div></div>
+      <div class="indicator-row" style="margin-top:8px;">
+        <span class="ind-name">OKX</span>
+        <span class="ind-val" style="color:var(--red);">-0.006% → 회복 시 롱 신호</span>
+      </div>
+      <div class="ind-bar"><div class="ind-bar-fill" style="width:30%;background:var(--red);"></div></div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6;">
+        바이낸스 펀딩이 <strong style="color:var(--green);">+0.003% 이상</strong> 회복 시 롱 진입 근거 강화.<br>
+        OKX 음전 지속 시 <strong style="color:var(--red);">숏 우선.</strong>
+      </div>
+    </div>
+
+    <div class="bottom-item">
+      <h4>📌 핵심 지표 ② — OI·청산 관찰</h4>
+      <div class="indicator-row">
+        <span class="ind-name">현재 OI</span>
+        <span class="ind-val" style="color:var(--blue);">$10.83B</span>
+      </div>
+      <div class="indicator-row">
+        <span class="ind-name">청산금액</span>
+        <span class="ind-val" style="color:var(--gold);">$3.21M (감소)</span>
+      </div>
+      <div class="indicator-row">
+        <span class="ind-name">청산 방향</span>
+        <span class="ind-val" style="color:var(--red);">숏 80.41%</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6;">
+        OI가 <strong style="color:var(--red);">$10.70B 이하</strong>로 감소 시 포지션 청산 가속 → 변동성 주의.<br>
+        청산금액 <strong style="color:var(--green);">$10M+ 롱 청산</strong> 출현 시 숏 강화 신호.
+      </div>
+    </div>
+
+    <div class="bottom-item">
+      <h4>⏸ 관망 조건</h4>
+      <div class="watch-cond">
+        <strong>아래 조건 충족 시 포지션 미진입:</strong><br><br>
+        • 정산 직전 15분 내 — 급격한 방향 전환 위험<br>
+        • 청산금액이 <strong>$1M 미만</strong>으로 추가 감소 시<br>
+        • 롱숏 비율이 <strong>50% 중심 ±0.3%</strong> 이내 유지 시<br>
+        • 바이낸스·OKX·바이비트 펀딩 방향이 <strong>불일치 심화</strong> 시<br><br>
+        현재 상태: <strong style="color:var(--gold);">조건 2개 충족 → 소규모 진입 또는 관망 권장</strong>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- RISK SECTION -->
+<div class="divider"></div>
+<div class="section-title">06 — 핵심 리스크</div>
+<div class="risk-card">
+  <div class="risk-grid">
+
+    <div class="risk-item">
+      <h5>⚡ RISK 01 — 정산 타이밍 변동성</h5>
+      <p>현재 타이밍이 <strong>정산 1시간 전</strong>으로 과거 데이터에서도 정산 30분 전후 청산금액이 $12~$27M 규모로 급증했습니다. 정산 직전 <strong>롱 또는 숏 중 어느 방향이든 급격한 청산 폭발</strong>이 발생할 수 있으며, 이 시간대는 <strong>기존 포지션 규모 축소 또는 신규 진입 자제</strong>가 최우선입니다.</p>
+    </div>
+
+    <div class="risk-item">
+      <h5>🔀 RISK 02 — OKX 거래소 괴리 심화</h5>
+      <p>OKX 펀딩비 <strong>-0.006%</strong>는 단순 음전이 아닌 OKX 내 구조적 숏 포지션 과잉을 의미합니다. 이 괴리가 <strong>-0.010% 이하</strong>로 확대될 경우 OKX발 대규모 숏 스퀴즈가 역으로 폭발할 위험이 있으며, 반대로 괴리가 해소되며 타 거래소도 음전 전환 시 <strong>전방위 매도 압력</strong>이 발생할 수 있습니다.</p>
+    </div>
+
+    <div class="risk-item">
+      <h5>📈 RISK 03 — OI 확대 + 청산 소멸의 역설</h5>
+      <p>OI가 <strong>$10.83B</strong>까지 확대됐음에도 청산금액이 <strong>$3.21M</strong>으로 급감한 현 상태는 표면적으로 안정적이나, 실제로는 <strong>대형 포지션이 쌓인 채 청산 트리거를 기다리는 구조</strong>입니다. 향후 방향성 이탈 시 누적된 OI가 일시에 청산되는 <strong>플래시 크래시 또는 급등 위험</strong>이 잠재합니다.</p>
+    </div>
+
+    <div class="risk-item">
+      <h5>🌍 RISK 04 — 현재가 하향 이탈 진행</h5>
+      <p>최신 수집 데이터($81,810) 대비 현재 시장가는 약 <strong>$81,224(포춘 9:15 ET 기준)</strong>로 이미 <strong>$586 하락</strong> 중입니다. 이는 숏 시나리오가 이미 일부 진행 중임을 의미하며, <strong>$81,000 심리적 지지선 이탈 여부</strong>가 최대 분기점입니다. 대응 방향: $81,000 붕괴 시 $80,583 목표 숏 강화.</p>
+    </div>
+
+  </div>
+</div>
+
+<div class="timestamp">
+  ⟨ 분석 기준: 05-12 08:00 수집 데이터 + 현재가 ~$81,224 반영 ⟩&nbsp;&nbsp;|&nbsp;&nbsp;본 분석은 투자 권유가 아닙니다
+</div>
+
+</body>
+</html>
