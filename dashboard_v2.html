@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>코인 선물 지표 대시보드 v2</title>
+<title>코인니스 선물 지표 대시보드 v2</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
@@ -287,8 +287,8 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
 
 <header>
   <div class="dot"></div>
-  <h1>코인 선물 지표</h1>
-  <span class="badge">v2</span>
+  <h1>코인니스 선물 지표</h1>
+  <span class="badge">v2.001</span>
   <span class="pc-only">펀딩피 기준 + 시간대별 수집</span>
   <div class="header-right">
     <!-- 실시간 BTC -->
@@ -395,7 +395,7 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
 
     <!-- BTC 차트 -->
     <div class="chart-card full" style="margin-bottom:14px;">
-      <div class="chart-title">BTC 수집시간가 (USD) — 수집 시점 기준</div>
+      <div class="chart-title">BTC 수집시간가격 (USD) — 수집 시점 기준</div>
       <div class="chart-wrap" style="height:200px"><canvas id="btcChart"></canvas></div>
       <div class="chart-legend">
         <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>BTC 가격</div>
@@ -803,7 +803,7 @@ function renderStat(row) {
     <div class="stat-card"><div class="stat-l">수집 시간</div><div class="stat-v mono" style="font-size:13px">${row['수집시간']||'-'}</div></div>
     <div class="stat-card"><div class="stat-l">정산회차</div><div class="stat-v">${row['정산회차']||'-'}</div></div>
     <div class="stat-card"><div class="stat-l">타이밍</div><div class="stat-v" style="font-size:13px;padding-top:3px">${timingBadge(row['타이밍']||'')}</div></div>
-    <div class="stat-card"><div class="stat-l">BTC 수집시간가</div><div class="stat-v" style="font-size:14px">${formatPrice(parseBtcPrice(row['BTC_현재가']))}<br><span style="font-size:10px;color:var(--text3);font-family:'Noto Sans KR',sans-serif;">수집: ${(row['수집시간']||'').slice(5)}</span></div></div>
+    <div class="stat-card"><div class="stat-l">BTC 수집시간가격</div><div class="stat-v" style="font-size:14px">${formatPrice(parseBtcPrice(row['BTC_현재가']))}<br><span style="font-size:10px;color:var(--text3);font-family:'Noto Sans KR',sans-serif;">수집: ${(row['수집시간']||'').slice(5)}</span></div></div>
   `;
 }
 
@@ -864,9 +864,9 @@ function renderSummaryCards() {
 
   document.getElementById('summaryCards').innerHTML = `
     <div class="sum-card${bnNeg?' danger':''}">
-      <div class="sum-label">BTC 현재가</div>
+      <div class="sum-label">BTC 수집시간가격</div>
       <div class="sum-val ${btcDiff===null?'':btcUp?'sum-up':'sum-down'}">${btcNow!==null?formatPrice(btcNow):'-'}</div>
-      <div class="sum-sub">${btcDiff!==null?(btcUp?'▲ +':'▼ ')+formatPrice(Math.abs(btcDiff)):'이전 데이터 없음'}</div>
+      <div class="sum-sub">${btcDiff!==null?(btcUp?'▲ +':'▼ ')+formatPrice(Math.abs(btcDiff)):'이전 데이터 없음'}<br><span style="font-size:10px;color:var(--text3)">수집: ${(latest['수집시간']||'').slice(5)}</span></div>
     </div>
     <div class="sum-card${bnNeg?' danger':''}">
       <div class="sum-label">바이낸스 펀딩비</div>
@@ -950,17 +950,28 @@ function renderCharts() {
   // 청산
   destroyChart('liqChart');
   const liqPcts=rows.map(r=>parseFloat(r['청산비율'])||null);
-  const liqCols=rows.map(r=>(r['청산비율']||'').includes('롱')?'#22c55e':'#f04444');
+  const liqCols=rows.map(r=>(r['청산비율']||'').includes('롱')
+    ? 'rgba(34,197,94,0.5)' : 'rgba(240,68,68,0.5)');  // 반투명
+  const liqBorder=rows.map(r=>(r['청산비율']||'').includes('롱')
+    ? '#22c55e' : '#f04444');
   const liqAmts=rows.map(r=>{const v=r['청산금액']||'';const n=parseFloat(v);if(v.includes('B'))return n*1000;if(v.includes('M'))return n;if(v.includes('K'))return n/1000;return n;});
   destroyChart('liqChart');
   chartInstances['liqChart']=new Chart(document.getElementById('liqChart'),{
     type:'bar',
     data:{labels,datasets:[
-      {label:'청산비율',data:liqPcts,backgroundColor:liqCols,borderRadius:4,yAxisID:'y'},
-      {label:'청산금액(M)',data:liqAmts,type:'line',borderColor:'#f59e0b',backgroundColor:'transparent',tension:.3,pointRadius:2,borderWidth:2,borderDash:[4,3],yAxisID:'y2'}
+      {label:'청산비율',data:liqPcts,backgroundColor:liqCols,borderColor:liqBorder,borderWidth:1.5,borderRadius:4,yAxisID:'y'},
+      {label:'청산금액(M)',data:liqAmts,type:'line',borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.15)',
+       tension:.3,pointRadius:4,pointBackgroundColor:'#f59e0b',borderWidth:2.5,fill:true,yAxisID:'y2',
+       pointHoverRadius:6,z:10}
     ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.datasetIndex===0?rows[ctx.dataIndex]['청산비율']||'':rows[ctx.dataIndex]['청산금액']||''}}},
-      scales:{x:scaleX(tc),y:{...scaleY(tc,gc,v=>v+'%'),min:0,max:100,position:'left'},y2:{...scaleY(tc,gc,v=>v+'M'),position:'right',grid:{display:false}}}}
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.datasetIndex===0?rows[ctx.dataIndex]['청산비율']||'':rows[ctx.dataIndex]['청산금액']||''}}},
+      scales:{
+        x:scaleX(tc),
+        y:{...scaleY(tc,gc,v=>v+'%'),min:0,max:100,position:'left'},
+        y2:{ticks:{font:{size:11},color:'#f59e0b',callback:v=>v+'M'},grid:{display:false},position:'right'}
+      }
+    }
   });
 
   // 롱숏
@@ -1051,24 +1062,35 @@ async function copyPrompt() {
   if(oiDec) signals.push('🟡 포지션 정리 중 (OI 연속 감소)');
   const btcPrice=parseBtcPrice(latest['BTC_현재가'])||0;
   const fmt=v=>'$'+Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');
-  const longT1=fmt(btcPrice*1.010), longT2=fmt(btcPrice*1.015), longStop=fmt(btcPrice*0.994);
-  const shortT1=fmt(btcPrice*0.990), shortT2=fmt(btcPrice*0.985), shortStop=fmt(btcPrice*1.005);
+  // 실시간 BTC 가격 가져오기
+  const rtPriceEl = document.getElementById('btcRtPrice');
+  const rtPrice = rtPriceEl ? parseBtcPrice(rtPriceEl.textContent) : null;
+  const rtUpdEl = document.getElementById('btcRtUpdated');
+  const rtUpdated = rtUpdEl ? rtUpdEl.textContent : '';
+  const rtDiff = rtPrice && btcPrice ? rtPrice - btcPrice : null;
 
-  const prompt=`당신은 암호화폐 선물 시장 전문 분석가입니다. 아래 코인에서 수집한 BTC 선물 지표 데이터를 심층 분석해주세요.
+  // 목표가/손절선은 실시간 가격 기준으로 계산 (없으면 수집가 사용)
+  const calcPrice = rtPrice || btcPrice;
+  const longT1=fmt(calcPrice*1.010), longT2=fmt(calcPrice*1.015), longStop=fmt(calcPrice*0.994);
+  const shortT1=fmt(calcPrice*0.990), shortT2=fmt(calcPrice*0.985), shortStop=fmt(calcPrice*1.005);
+
+  const prompt=`당신은 암호화폐 선물 시장 전문 분석가입니다. 아래 코인니스에서 수집한 BTC 선물 지표 데이터를 심층 분석해주세요.
 
 ## 수집 데이터 (최근 ${recent.length}개 시점, 1시간 기준)
 ${summary}
 
-## 현재 주요 수치 (최신 시점)
-- BTC 현재가: ${latest['BTC_현재가']||'-'}
-- 바이낸스 펀딩비: ${latest['펀딩_바이낸스']||'-'}
-- OKX 펀딩비: ${latest['펀딩_OKX']||'-'}
-- 바이비트 펀딩비: ${latest['펀딩_바이비트']||'-'}
-- 거래소 간 괴리폭: ${gap.toFixed(3)}%p
-- 청산비율: ${latest['청산비율']||'-'}
-- 청산금액: ${latest['청산금액']||'-'}
-- 미결제약정(BTC): ${latest['미결제_BTC']||'-'}
-- 롱숏 비율: ${latest['롱숏_롱']||'-'} / ${latest['롱숏_숏']||'-'}
+## 최신 수집 데이터 (수집시각: ${latest['수집시간']||'-'} 기준)
+- BTC 수집시간가격: ${latest['BTC_현재가']||'-'} (수집: ${(latest['수집시간']||'').slice(5)})
+- BTC 선물 실시간가: ${rtPrice ? fmt(rtPrice) + ' (' + rtUpdated + ')' : '확인 불가 — 수집가 기준으로 분석'}
+${rtDiff !== null ? `- 수집 후 가격 변화: ${rtDiff >= 0 ? '▲ +' : '▼ '}${fmt(Math.abs(rtDiff))} (${((rtDiff/btcPrice)*100).toFixed(2)}%) — 실시간 반영 필요` : ''}
+- 바이낸스 펀딩비: ${latest['펀딩_바이낸스']||'-'} ※ 수집 시점 기준
+- OKX 펀딩비: ${latest['펀딩_OKX']||'-'} ※ 수집 시점 기준
+- 바이비트 펀딩비: ${latest['펀딩_바이비트']||'-'} ※ 수집 시점 기준
+- 거래소 간 괴리폭: ${gap.toFixed(3)}%p ※ 수집 시점 기준
+- 청산비율: ${latest['청산비율']||'-'} ※ 수집 시점 기준
+- 청산금액: ${latest['청산금액']||'-'} ※ 수집 시점 기준
+- 미결제약정(BTC): ${latest['미결제_BTC']||'-'} ※ 수집 시점 기준
+- 롱숏 비율: ${latest['롱숏_롱']||'-'} / ${latest['롱숏_숏']||'-'} ※ 수집 시점 기준
 - 타이밍: ${latest['타이밍']||'-'}
 
 ## 규칙 기반 감지 신호
@@ -1086,7 +1108,7 @@ ${signals.length?signals.join('\n'):'⚪ 특이 신호 없음'}
 아래 데이터를 분석해서 "시나리오 A/B + 권장 포지션" 카드로 시각화해줘.
 
 [분석 데이터]
-- BTC 현재가: ${fmt(btcPrice)}
+- BTC 선물 실시간가: ${rtPrice ? fmt(rtPrice) : fmt(btcPrice)} ${rtPrice ? '(실시간 기준)' : '(수집가 기준)'}
 - 롱 목표가: ${longT1} ~ ${longT2} (현재가 +1%~+1.5%)
 - 롱 손절선: ${longStop} (현재가 -0.6%)
 - 숏 목표가: ${shortT1} ~ ${shortT2} (현재가 -1%~-1.5%)
@@ -1106,7 +1128,26 @@ ${signals.length?signals.join('\n'):'⚪ 특이 신호 없음'}
 
 6. **핵심 리스크** — 현재 가장 주목해야 할 위험 요소와 대응 방향
 
-1~4번과 6번은 구체적인 수치를 인용하며 2~4문장으로 작성해주세요.`;
+---
+
+## 출력 형식 요청
+
+위 1~6번 분석 결과 전체를 **"BTC 선물 시장 심층 분석"** 제목의 HTML 문서로 작성해줘.
+
+### 디자인 조건
+- 배경: 다크 (#070b14), 카드 레이아웃
+- 폰트: Rajdhani(제목) + Noto Sans KR(본문) + JetBrains Mono(수치)
+- 헤더: 제목 + 수집 기준시각 + BTC 실시간가 / 수집가 배지 표시
+- **1~4번**: 2열 그리드 분석 카드 (상단 라인 포인트)
+- **5번 시나리오 A/B**: 좌우 2열 카드
+  - 시나리오 A: 초록 테두리 (#22c55e), 확률 배지, 조건 ✓/✗/◐, 목표가 강조, 진입/손절/R:R 테이블, 주의사항
+  - 시나리오 B: 빨간 테두리 (#f04444), 동일 구성 + 펀딩비 보유비용 테이블 추가
+- **공통 판단 기준**: 3열 하단 패널 (핵심지표①, 핵심지표②, 관망조건)
+- **6번 리스크**: 2×2 그리드 카드 (빨간 테두리)
+- 하단 면책문구: "본 분석은 투자 권유가 아닙니다"
+- 모바일 반응형 포함 (700px 이하 1열)
+
+HTML 코드만 출력해줘. 마크다운 설명 없이 완성된 HTML 전체를 출력해줘.`;
 
   try {
     await navigator.clipboard.writeText(prompt);
