@@ -779,8 +779,10 @@ function parseCSV(text) {
     return obj;
   }).filter(r => r['수집시간']);
 
-  // v1 → v2 자동 변환 (시간대 컬럼 있으면 1시간만 남기고 제거)
-  if (headers.includes('시간대')) {
+  // v1 → v2 자동 변환
+  // v1: 시간대 컬럼 있고 김치프리미엄 컬럼 없음 → 1시간만 남기고 시간대 컬럼 제거
+  // v2: 시간대 컬럼 있고 김치프리미엄 컬럼도 있음 → 그대로 유지
+  if (headers.includes('시간대') && !headers.includes('김치프리미엄')) {
     rows = rows.filter(r => r['시간대'] === '1시간');
     rows.forEach(r => delete r['시간대']);
   }
