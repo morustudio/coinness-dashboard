@@ -491,6 +491,9 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
 <!-- 대시보드 본문 -->
 <main id="dashboard" style="display:none">
 
+  <!-- 시간대 안내 -->
+  <div id="tfNotice" style="display:none;font-size:12px;color:var(--amber);background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:8px 14px;margin-bottom:4px;"></div>
+
   <!-- 요약 스탯 -->
   <div class="stat-row" id="statRow"></div>
   <div class="divider"></div>
@@ -1070,19 +1073,24 @@ function getRow() {
   const date    = key.slice(0,5);
   const session = key.slice(6);
 
-  // 현재 시간대 데이터 있으면 사용, 없으면 1시간으로 fallback
-  let row = allData.find(d => {
-    const dDate = (d['수집시간']||'').slice(5,10);
-    return dDate===date && d['정산회차']===session && d['타이밍']===timing && (d['시간대']||'1시간')===currentTf;
-  });
-  // 해당 시간대 없으면 시간대 무관하게 찾기 (1시간만 수집된 시점)
-  if (!row) {
-    row = allData.find(d => {
+  // 1시간은 선택한 정산회차+타이밍 그대로 찾기
+  if (currentTf === '1시간') {
+    return allData.find(d => {
       const dDate = (d['수집시간']||'').slice(5,10);
-      return dDate===date && d['정산회차']===session && d['타이밍']===timing;
+      return dDate===date && d['정산회차']===session && d['타이밍']===timing && (d['시간대']||'1시간')==='1시간';
     });
   }
-  return row;
+
+  // 4시간/12시간/24시간 — 해당 시간대 데이터가 있는 가장 최근 정산_기준 행 찾기
+  const sorted = [...allData].sort((a,b)=>(b['수집시간']||'').localeCompare(a['수집시간']||''));
+  const found = sorted.find(d => (d['시간대']||'')=== currentTf && d['타이밍']==='정산_기준');
+  if (found) return found;
+
+  // fallback: 1시간 데이터
+  return allData.find(d => {
+    const dDate = (d['수집시간']||'').slice(5,10);
+    return dDate===date && d['정산회차']===session && d['타이밍']===timing;
+  });
 }
 
 // ── 기간 필터 ─────────────────────────────────────────────
@@ -1152,6 +1160,19 @@ function render() {
     });
     return;
   }
+
+  // 4h/12h/24h는 최근 정산_기준 데이터 사용 안내
+  if (currentTf !== '1시간') {
+    const notice = document.getElementById('tfNotice');
+    if (notice) {
+      notice.textContent = `※ ${currentTf} 데이터 — 최근 정산 기준: ${(row['수집시간']||'').slice(5)} (${row['정산회차']||''})`;
+      notice.style.display = 'block';
+    }
+  } else {
+    const notice = document.getElementById('tfNotice');
+    if (notice) notice.style.display = 'none';
+  }
+
   renderStat(row); renderLS(row); renderLiq(row); renderFund(row); renderOI(row);
 }
 
