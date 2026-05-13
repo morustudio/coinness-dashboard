@@ -281,6 +281,63 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
   .cd-timer{font-size:20px;letter-spacing:1px;}
   #tfBtns .btn{font-size:11px;padding:6px 2px;}
 }
+/* ── 수익 계산기 팝업 ── */
+.calc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.calc-popup{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.calc-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 0;}
+.calc-header h3{font-size:15px;font-weight:700;color:var(--text);}
+.calc-close{background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:color .15s;}
+.calc-close:hover{color:var(--text);}
+.calc-tabs{display:flex;gap:0;margin:14px 20px 0;border-bottom:2px solid var(--border);}
+.calc-tab{flex:1;text-align:center;padding:10px;font-size:14px;font-weight:500;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
+.calc-tab.active{color:#0ecfb0;border-bottom-color:#0ecfb0;}
+.calc-body{padding:18px 20px 20px;}
+.calc-asset{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.calc-asset-left{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;flex:1;margin-right:10px;}
+.calc-asset-left span{font-size:13px;font-weight:600;color:var(--text);}
+.calc-seg{display:flex;gap:4px;}
+.calc-seg-btn{padding:7px 16px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--bg3);color:var(--text3);transition:all .15s;font-family:'Noto Sans KR',sans-serif;}
+.calc-seg-btn.active-maker{background:#0ecfb0;color:#fff;}
+.calc-seg-btn.active-taker{background:#0ecfb0;color:#fff;}
+.calc-pos{display:flex;gap:6px;margin-bottom:14px;}
+.calc-pos-btn{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border2);font-size:14px;font-weight:600;cursor:pointer;background:var(--bg3);color:var(--text3);transition:all .15s;font-family:'Noto Sans KR',sans-serif;}
+.calc-pos-btn.active-long{background:#0ecfb0;border-color:#0ecfb0;color:#fff;}
+.calc-pos-btn.active-short{background:#0ecfb0;border-color:#0ecfb0;color:#fff;}
+.calc-lev{margin-bottom:14px;}
+.calc-lev-label{font-size:11px;color:var(--text3);margin-bottom:8px;display:flex;justify-content:space-between;}
+.calc-lev-label span{color:#0ecfb0;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.calc-lev-steps{display:flex;gap:4px;}
+.calc-lev-step{flex:1;padding:7px 4px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text3);font-size:12px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;font-family:'Noto Sans KR',sans-serif;}
+.calc-lev-step.active{background:#0ecfb0;border-color:#0ecfb0;color:#fff;}
+.calc-field{margin-bottom:12px;}
+.calc-field label{display:block;font-size:11px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;}
+.calc-field-row{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;overflow:hidden;transition:border-color .15s;}
+.calc-field-row:focus-within{border-color:#0ecfb0;}
+.calc-field-row input{flex:1;background:none;border:none;padding:10px 12px;color:var(--text);font-size:14px;font-family:'JetBrains Mono',monospace;outline:none;}
+.calc-field-row span{padding:10px 12px;color:var(--text3);font-size:12px;border-left:1px solid var(--border2);}
+.calc-field-sub{font-size:11px;color:var(--text3);margin-top:4px;text-align:right;cursor:pointer;text-decoration:underline;}
+.calc-field-sub:hover{color:#0ecfb0;}
+.calc-btns{display:flex;gap:10px;margin-top:16px;}
+.calc-btn-reset{flex:1;padding:12px;border-radius:10px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;}
+.calc-btn-reset:hover{border-color:var(--text2);}
+.calc-btn-calc{flex:2;padding:12px;border-radius:10px;border:none;background:#0ecfb0;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:opacity .15s;}
+.calc-btn-calc:hover{opacity:.9;}
+.calc-result{background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;margin-top:14px;}
+.calc-result-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.calc-result-row:last-child{border-bottom:none;}
+.calc-result-label{color:var(--text3);}
+.calc-result-val{font-family:'JetBrains Mono',monospace;font-weight:700;}
+.calc-result-val.pos{color:#0ecfb0;}
+.calc-result-val.neg{color:var(--long);}
+.calc-result-val.warn{color:var(--amber);}
+.calc-result-formula{font-size:12px;color:var(--text3);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);line-height:1.6;}
+.calc-warning{background:rgba(240,68,68,.1);border:1px solid rgba(240,68,68,.3);border-radius:8px;padding:8px 12px;font-size:11.5px;color:var(--long);margin-top:8px;}
+.calc-notice{font-size:11px;color:var(--text3);margin-top:10px;padding:8px;background:rgba(245,158,11,.06);border-radius:6px;border:1px solid rgba(245,158,11,.15);}
+
+@media(max-width:768px){
+  .calc-popup{width:100%;max-width:100%;min-height:80vh;border-radius:20px 20px 0 0;position:fixed;bottom:0;left:0;right:0;max-height:92vh;}
+  .calc-overlay{align-items:flex-end;}
+}
 </style>
 </head>
 <body>
@@ -288,7 +345,7 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
 <header>
   <div class="dot"></div>
   <h1>코인니스 선물 지표</h1>
-  <span class="badge">v2.003</span>
+  <span class="badge">v2.004</span>
   <span class="pc-only">펀딩피 기준 + 시간대별 수집</span>
   <div class="header-right">
     <!-- 실시간 BTC -->
@@ -336,6 +393,97 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
       <button class="btn" onclick="setTf('4시간')">4시간</button>
       <button class="btn" onclick="setTf('12시간')">12시간</button>
       <button class="btn" onclick="setTf('24시간')">24시간</button>
+    </div>
+  </div>
+  <div style="margin-left:auto;">
+    <button class="export-btn" onclick="openCalc()" style="border-color:#0ecfb0;color:#0ecfb0;background:rgba(14,207,176,.1);">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 15.75V18m-7.5-6.75h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm2.496-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008v-.008zm2.496-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008v-.008zm6-10.125a11.015 11.015 0 01-1.96 3.286 11.02 11.02 0 01-7.29 3.714H7.5a1.5 1.5 0 00-1.5 1.5v1.875M15 6.75a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      수익 계산기
+    </button>
+  </div>
+</div>
+
+<!-- 계산기 팝업 -->
+<div class="calc-overlay" id="calcOverlay" style="display:none" onclick="if(event.target===this)closeCalc()">
+  <div class="calc-popup" id="calcPopup">
+    <div class="calc-header">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0ecfb0" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 15.75V18m-7.5-6.75h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm2.496-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008v-.008zm2.496-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008v-.008zm6-10.125a11.015 11.015 0 01-1.96 3.286 11.02 11.02 0 01-7.29 3.714H7.5a1.5 1.5 0 00-1.5 1.5v1.875"/></svg>
+        <h3>수익 계산기</h3>
+      </div>
+      <button class="calc-close" onclick="closeCalc()">✕</button>
+    </div>
+    <div class="calc-tabs">
+      <div class="calc-tab active" onclick="switchCalcTab('profit')">수익</div>
+      <div class="calc-tab" onclick="switchCalcTab('target')">목표 가격</div>
+    </div>
+    <div class="calc-body">
+      <!-- 공통: 자산 + 수수료 -->
+      <div class="calc-asset">
+        <div class="calc-asset-left">
+          <svg width="18" height="18" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#F7931A"/><path d="M22.5 14.2c.3-2-1.2-3.1-3.3-3.8l.7-2.7-1.6-.4-.7 2.7-1.3-.3.7-2.7-1.6-.4-.7 2.7-2.6-.7-.4 1.7s1.2.3 1.2.3c.7.2.8.7.8 1l-.8 3.3c0 .1-.1.1-.2.1l-1.2-.3-.5 1.8 2.5.6-.7 2.8 1.6.4.7-2.8 1.3.3-.7 2.8 1.6.4.7-2.8c2.8.5 4.9.3 5.8-2.2.7-2-.1-3.2-1.4-3.9 1-.3 1.7-1 1.9-2.1zm-3.4 4.8c-.5 2-3.9.9-5 .6l.9-3.5c1.1.3 4.7.8 4.1 2.9zm.5-4.9c-.5 1.8-3.3.9-4.3.7l.8-3.2c1 .3 4.1.7 3.5 2.5z" fill="#fff"/></svg>
+          <span>BTCUSDT</span>
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-left:auto;color:var(--text3)"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+        </div>
+        <div class="calc-seg">
+          <button class="calc-seg-btn active-maker" id="btnMaker" onclick="setFeeType('maker')">메이커</button>
+          <button class="calc-seg-btn" id="btnTaker" onclick="setFeeType('taker')">테이커</button>
+        </div>
+      </div>
+      <!-- 포지션 -->
+      <div class="calc-pos">
+        <button class="calc-pos-btn active-long" id="btnLong" onclick="setPosition('long')">롱</button>
+        <button class="calc-pos-btn" id="btnShort" onclick="setPosition('short')">숏</button>
+      </div>
+      <!-- 레버리지 -->
+      <div class="calc-lev">
+        <div class="calc-lev-label">레버리지 <span id="levDisplay">1X</span></div>
+        <div class="calc-lev-steps" id="levSteps">
+          <button class="calc-lev-step active" onclick="setLev(1)">1X</button>
+          <button class="calc-lev-step" onclick="setLev(5)">5X</button>
+          <button class="calc-lev-step" onclick="setLev(10)">10X</button>
+          <button class="calc-lev-step" onclick="setLev(20)">20X</button>
+          <button class="calc-lev-step" onclick="setLev(50)">50X</button>
+          <button class="calc-lev-step" onclick="setLev(125)">125X</button>
+        </div>
+      </div>
+      <!-- 수익 탭 -->
+      <div id="tabProfit">
+        <div class="calc-field">
+          <label>오픈 가격</label>
+          <div class="calc-field-row"><input type="number" id="pOpenPrice" placeholder="0.00"><span>USDT</span></div>
+        </div>
+        <div class="calc-field">
+          <label>청산 가격</label>
+          <div class="calc-field-row"><input type="number" id="pClosePrice" placeholder="0.00"><span>USDT</span></div>
+        </div>
+        <div class="calc-field">
+          <label>오픈 포지션 수량</label>
+          <div class="calc-field-row"><input type="number" id="pQty" placeholder="0.00000"><span>BTC</span></div>
+        </div>
+        <div class="calc-btns">
+          <button class="calc-btn-reset" onclick="resetCalc()">초기화</button>
+          <button class="calc-btn-calc" onclick="calcProfit()">계산</button>
+        </div>
+        <div id="profitResult" style="display:none"></div>
+      </div>
+      <!-- 목표 가격 탭 -->
+      <div id="tabTarget" style="display:none">
+        <div class="calc-field">
+          <label>오픈 가격</label>
+          <div class="calc-field-row"><input type="number" id="tOpenPrice" placeholder="0.00"><span>USDT</span></div>
+        </div>
+        <div class="calc-field">
+          <label>목표 수익</label>
+          <div class="calc-field-row"><input type="number" id="tTarget" placeholder="1.00"><span id="tTargetUnit">%</span></div>
+          <div class="calc-field-sub" onclick="toggleTargetUnit()">USDT로 입력하기</div>
+        </div>
+        <div class="calc-btns">
+          <button class="calc-btn-reset" onclick="resetCalc()">초기화</button>
+          <button class="calc-btn-calc" onclick="calcTarget()">계산</button>
+        </div>
+        <div id="targetResult" style="display:none"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -702,9 +850,218 @@ function initFilters() {
 function setTf(tf) {
   currentTf = tf;
   document.querySelectorAll('#tfBtns .btn').forEach(b =>
-    b.classList.toggle('active', b.textContent === tf)
+    b.classList.toggle('active', b.textContent.trim() === tf)
   );
   render();
+  if (allData.length) {
+    renderCharts();
+    renderSummaryCards();
+    renderInterpretation();
+    renderStrategy();
+  }
+}
+
+// ── 수익 계산기 ───────────────────────────────────────────
+const MAKER_FEE = 0.0002;  // 0.02%
+const TAKER_FEE = 0.0005;  // 0.05%
+
+let calcState = {
+  tab: 'profit',
+  feeType: 'maker',
+  position: 'long',
+  lev: 1,
+  targetUnit: 'pct'  // 'pct' or 'usdt'
+};
+
+function openCalc() {
+  document.getElementById('calcOverlay').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  // 실시간 BTC 가격 자동 입력
+  const rtPrice = document.getElementById('btcRtPrice');
+  if (rtPrice && rtPrice.textContent !== '-') {
+    const price = rtPrice.textContent.replace(/[$,]/g,'');
+    const pOpen = document.getElementById('pOpenPrice');
+    const tOpen = document.getElementById('tOpenPrice');
+    if (pOpen && !pOpen.value) pOpen.value = price;
+    if (tOpen && !tOpen.value) tOpen.value = price;
+  }
+}
+
+function closeCalc() {
+  document.getElementById('calcOverlay').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function switchCalcTab(tab) {
+  calcState.tab = tab;
+  document.querySelectorAll('.calc-tab').forEach((t,i) =>
+    t.classList.toggle('active', (i===0&&tab==='profit')||(i===1&&tab==='target'))
+  );
+  document.getElementById('tabProfit').style.display = tab==='profit' ? 'block' : 'none';
+  document.getElementById('tabTarget').style.display = tab==='target' ? 'block' : 'none';
+}
+
+function setFeeType(type) {
+  calcState.feeType = type;
+  document.getElementById('btnMaker').className = 'calc-seg-btn' + (type==='maker'?' active-maker':'');
+  document.getElementById('btnTaker').className = 'calc-seg-btn' + (type==='taker'?' active-taker':'');
+}
+
+function setPosition(pos) {
+  calcState.position = pos;
+  document.getElementById('btnLong').className  = 'calc-pos-btn' + (pos==='long' ?' active-long':'');
+  document.getElementById('btnShort').className = 'calc-pos-btn' + (pos==='short'?' active-short':'');
+}
+
+function setLev(lev) {
+  calcState.lev = lev;
+  document.getElementById('levDisplay').textContent = lev + 'X';
+  document.querySelectorAll('.calc-lev-step').forEach(b =>
+    b.classList.toggle('active', b.textContent === lev+'X')
+  );
+}
+
+function toggleTargetUnit() {
+  calcState.targetUnit = calcState.targetUnit === 'pct' ? 'usdt' : 'pct';
+  document.getElementById('tTargetUnit').textContent = calcState.targetUnit === 'pct' ? '%' : 'USDT';
+  document.querySelector('.calc-field-sub').textContent =
+    calcState.targetUnit === 'pct' ? 'USDT로 입력하기' : '수익률(%)로 입력하기';
+  document.getElementById('tTarget').placeholder = calcState.targetUnit === 'pct' ? '1.00' : '0.00';
+}
+
+function fmt$(v) { return '$' + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtPct(v) { return (v>=0?'+':'')+v.toFixed(4)+'%'; }
+
+function resetCalc() {
+  ['pOpenPrice','pClosePrice','pQty','tOpenPrice','tTarget'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('profitResult').style.display = 'none';
+  document.getElementById('targetResult').style.display = 'none';
+  setFeeType('maker'); setPosition('long'); setLev(1);
+  calcState.targetUnit = 'pct';
+  document.getElementById('tTargetUnit').textContent = '%';
+  document.querySelector('.calc-field-sub').textContent = 'USDT로 입력하기';
+}
+
+function calcProfit() {
+  const open  = parseFloat(document.getElementById('pOpenPrice').value);
+  const close = parseFloat(document.getElementById('pClosePrice').value);
+  const qty   = parseFloat(document.getElementById('pQty').value);
+  if (isNaN(open)||isNaN(close)||isNaN(qty)||qty<=0) { alert('모든 값을 입력해주세요.'); return; }
+
+  const fee = calcState.feeType === 'maker' ? MAKER_FEE : TAKER_FEE;
+  const isLong = calcState.position === 'long';
+
+  const grossPnl   = isLong ? (close - open) * qty : (open - close) * qty;
+  const entryFee   = open  * qty * fee;
+  const exitFee    = close * qty * fee;
+  const totalFee   = entryFee + exitFee;
+  const netProfit  = grossPnl - totalFee;
+  const margin     = (open * qty) / calcState.lev;
+  const roe        = (netProfit / margin) * 100;
+  const bep        = isLong ? open * (1 + fee*2) : open * (1 - fee*2);
+  const liqPrice   = isLong ? open * (1 - 1/calcState.lev) : open * (1 + 1/calcState.lev);
+  const isRisky    = calcState.lev >= 20;
+
+  const el = document.getElementById('profitResult');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="calc-result">
+      <div class="calc-result-row">
+        <span class="calc-result-label">총수익 (Gross PnL)</span>
+        <span class="calc-result-val ${grossPnl>=0?'pos':'neg'}">${fmt$(grossPnl)}</span>
+      </div>
+      <div class="calc-result-row">
+        <span class="calc-result-label">총 수수료 (${calcState.feeType==='maker'?'메이커 0.02%':'테이커 0.05%'})</span>
+        <span class="calc-result-val neg">-${fmt$(totalFee)}</span>
+      </div>
+      <div class="calc-result-row" style="font-size:14px;font-weight:700;">
+        <span class="calc-result-label">순수익 (Net Profit)</span>
+        <span class="calc-result-val ${netProfit>=0?'pos':'neg'}">${netProfit>=0?'+':''}${fmt$(netProfit)}</span>
+      </div>
+      <div class="calc-result-row">
+        <span class="calc-result-label">수익률 (ROE)</span>
+        <span class="calc-result-val ${roe>=0?'pos':'neg'}">${fmtPct(roe)}</span>
+      </div>
+      <div class="calc-result-row">
+        <span class="calc-result-label">손익분기점 (BEP)</span>
+        <span class="calc-result-val warn">${fmt$(bep)}</span>
+      </div>
+      <div class="calc-result-row">
+        <span class="calc-result-label">청산가</span>
+        <span class="calc-result-val neg">${fmt$(liqPrice)}</span>
+      </div>
+      <div class="calc-result-formula">
+        총수익(${fmt$(grossPnl)}) - 총 수수료(${fmt$(totalFee)}) = <strong style="color:${netProfit>=0?'#0ecfb0':'var(--long)'}">${netProfit>=0?'+':''}${fmt$(netProfit)} USDT</strong>
+      </div>
+    </div>
+    ${isRisky ? `<div class="calc-warning">⚠ 고위험: ${calcState.lev}배 레버리지 — 청산가 ${fmt$(liqPrice)} (진입가 대비 ${isLong?'-':'+'}${(100/calcState.lev).toFixed(1)}%)</div>` : ''}
+    <div class="calc-notice">*수수료를 제외하고 계산 결과는 참고용으로만 사용하세요.</div>`;
+}
+
+function calcTarget() {
+  const open = parseFloat(document.getElementById('tOpenPrice').value);
+  let target = parseFloat(document.getElementById('tTarget').value);
+  if (isNaN(open)||isNaN(target)||target<=0) { alert('모든 값을 입력해주세요.'); return; }
+
+  const fee    = calcState.feeType === 'maker' ? MAKER_FEE : TAKER_FEE;
+  const isLong = calcState.position === 'long';
+
+  // USDT 입력이면 레버리지 기준 수익률로 변환 (포지션 $10,000 기준)
+  if (calcState.targetUnit === 'usdt') {
+    const posSize = 10000;
+    const margin  = posSize / calcState.lev;
+    target = (target / margin) * 100;
+  }
+
+  // 역산: 수수료 반영 청산가
+  // 롱: targetPrice = open * (1 + (roe/lev/100) + fee*2)
+  // 숏: targetPrice = open * (1 - (roe/lev/100) - fee*2)
+  const roeFraction = target / calcState.lev / 100;
+  const targetPrice = isLong
+    ? open * (1 + roeFraction + fee * 2)
+    : open * (1 - roeFraction - fee * 2);
+
+  const entryFee = open * fee;
+  const exitFee  = targetPrice * fee;
+  const totalFee = (entryFee + exitFee) * 1; // per unit
+  const liqPrice = isLong ? open * (1 - 1/calcState.lev) : open * (1 + 1/calcState.lev);
+  const bep      = isLong ? open * (1 + fee*2) : open * (1 - fee*2);
+  const isRisky  = calcState.lev >= 20;
+
+  const el = document.getElementById('targetResult');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="calc-result">
+      <div class="calc-result-row" style="font-size:15px;font-weight:700;">
+        <span class="calc-result-label">청산 가격</span>
+        <span class="calc-result-val ${isLong?'pos':'neg'}">${fmt$(targetPrice)}</span>
+      </div>
+      <div class="calc-result-row">
+        <span class="calc-result-label">총 수수료 (${calcState.feeType==='maker'?'메이커 0.02%':'테이커 0.05%'})</span>
+        <span class="calc-result-val neg">-${fmt$(totalFee)}</span>
+      </div>
+      <div class="calc-result-row">
+        <span class="calc-result-label">손익분기점 (BEP)</span>
+        <span class="calc-result-val warn">${fmt$(bep)}</span>
+      </div>
+      <div class="calc-result-row">
+        <span class="calc-result-label">청산가 (강제청산)</span>
+        <span class="calc-result-val neg">${fmt$(liqPrice)}</span>
+      </div>
+      <div class="calc-result-row">
+        <span class="calc-result-label">메이커 수수료</span>
+        <span class="calc-result-val" style="color:var(--text2);">${fmt$(open*(MAKER_FEE)+targetPrice*(MAKER_FEE))}</span>
+      </div>
+      <div class="calc-result-row">
+        <span class="calc-result-label">테이커 수수료</span>
+        <span class="calc-result-val" style="color:var(--text2);">${fmt$(open*(TAKER_FEE)+targetPrice*(TAKER_FEE))}</span>
+      </div>
+    </div>
+    ${isRisky ? `<div class="calc-warning">⚠ 고위험: ${calcState.lev}배 레버리지 — 강제청산가 ${fmt$(liqPrice)}</div>` : ''}
+    <div class="calc-notice">*수수료를 제외하고 계산 결과는 참고용으로만 사용하세요.</div>`;
 }
 
 function getRow() {
