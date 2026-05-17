@@ -345,7 +345,7 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
 <header>
   <div class="dot"></div>
   <h1>코인니스 선물 지표</h1>
-  <span class="badge">v2.005</span>
+  <span class="badge">v2.006</span>
   <span class="pc-only">펀딩피 기준 + 시간대별 수집</span>
   <div class="header-right">
     <!-- 실시간 BTC -->
@@ -404,7 +404,7 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
 </div>
 
 <!-- 계산기 팝업 -->
-<div class="calc-overlay" id="calcOverlay" style="display:none" onclick="if(event.target===this)closeCalc()">
+<div class="calc-overlay" id="calcOverlay" style="display:none">
   <div class="calc-popup" id="calcPopup">
     <div class="calc-header">
       <div style="display:flex;align-items:center;gap:8px;">
@@ -478,6 +478,10 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
           <label>목표 수익</label>
           <div class="calc-field-row"><input type="number" id="tTarget" placeholder="1.00"><span id="tTargetUnit">%</span></div>
           <div class="calc-field-sub" onclick="toggleTargetUnit()">USDT로 입력하기</div>
+        </div>
+        <div class="calc-field">
+          <label>손절 비율 (%)</label>
+          <div class="calc-field-row"><input type="number" id="tStopPct" placeholder="0.6" value="0.6" step="0.1"><span>%</span></div>
         </div>
         <div class="calc-btns">
           <button class="calc-btn-reset" onclick="resetCalc()">초기화</button>
@@ -977,6 +981,7 @@ function resetCalc() {
   document.getElementById('rrStopPct').value = '0.6';
   document.getElementById('rrTp1Pct').value  = '1.0';
   document.getElementById('rrTp2Pct').value  = '1.5';
+  document.getElementById('tStopPct').value  = '0.6';
   ['profitResult','targetResult','rrResult'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
@@ -1132,63 +1137,79 @@ function calcProfit() {
 function calcTarget() {
   const open = parseFloat(document.getElementById('tOpenPrice').value);
   let target = parseFloat(document.getElementById('tTarget').value);
+  const stopPct = parseFloat(document.getElementById('tStopPct').value) || 0.6;
   if (isNaN(open)||isNaN(target)||target<=0) { alert('모든 값을 입력해주세요.'); return; }
 
   const fee    = calcState.feeType === 'maker' ? MAKER_FEE : TAKER_FEE;
   const isLong = calcState.position === 'long';
+  const lev    = calcState.lev;
 
-  // USDT 입력이면 레버리지 기준 수익률로 변환 (포지션 $10,000 기준)
   if (calcState.targetUnit === 'usdt') {
     const posSize = 10000;
-    const margin  = posSize / calcState.lev;
+    const margin  = posSize / lev;
     target = (target / margin) * 100;
   }
 
-  // 역산: 수수료 반영 청산가
-  // 롱: targetPrice = open * (1 + (roe/lev/100) + fee*2)
-  // 숏: targetPrice = open * (1 - (roe/lev/100) - fee*2)
-  const roeFraction = target / calcState.lev / 100;
+  const roeFraction = target / lev / 100;
   const targetPrice = isLong
     ? open * (1 + roeFraction + fee * 2)
     : open * (1 - roeFraction - fee * 2);
 
+  const stopPrice = isLong
+    ? open * (1 - stopPct / lev / 100)
+    : open * (1 + stopPct / lev / 100);
+
   const entryFee = open * fee;
   const exitFee  = targetPrice * fee;
-  const totalFee = (entryFee + exitFee) * 1; // per unit
-  const liqPrice = isLong ? open * (1 - 1/calcState.lev) : open * (1 + 1/calcState.lev);
+  const totalFee = entryFee + exitFee;
+  const liqPrice = isLong ? open * (1 - 1/lev) : open * (1 + 1/lev);
   const bep      = isLong ? open * (1 + fee*2) : open * (1 - fee*2);
-  const isRisky  = calcState.lev >= 20;
+  const reward   = Math.abs(targetPrice - open);
+  const risk     = Math.abs(stopPrice - open);
+  const rr       = risk > 0 ? (reward/risk).toFixed(2) : '-';
+  const isRisky  = lev >= 20;
 
   const el = document.getElementById('targetResult');
   el.style.display = 'block';
   el.innerHTML = `
     <div class="calc-result">
       <div class="calc-result-row" style="font-size:15px;font-weight:700;">
-        <span class="calc-result-label">청산 가격</span>
+        <span class="calc-result-label">${isLong?'📈 롱':'📉 숏'} 목표 청산가</span>
         <span class="calc-result-val ${isLong?'pos':'neg'}">${fmt$(targetPrice)}</span>
       </div>
       <div class="calc-result-row">
-        <span class="calc-result-label">총 수수료 (${calcState.feeType==='maker'?'메이커 0.02%':'테이커 0.05%'})</span>
-        <span class="calc-result-val neg">-${fmt$(totalFee)}</span>
+        <span class="calc-result-label">🛑 손절가 (-${stopPct}%)</span>
+        <span class="calc-result-val neg">${fmt$(stopPrice)}</span>
+      </div>
+      <div class="calc-result-row">
+        <span class="calc-result-label">⚡ 청산가 (강제)</span>
+        <span class="calc-result-val warn">${fmt$(liqPrice)}</span>
       </div>
       <div class="calc-result-row">
         <span class="calc-result-label">손익분기점 (BEP)</span>
         <span class="calc-result-val warn">${fmt$(bep)}</span>
       </div>
       <div class="calc-result-row">
-        <span class="calc-result-label">청산가 (강제청산)</span>
-        <span class="calc-result-val neg">${fmt$(liqPrice)}</span>
+        <span class="calc-result-label">총 수수료 (${calcState.feeType==='maker'?'메이커':'테이커'})</span>
+        <span class="calc-result-val neg">-${fmt$(totalFee)}</span>
       </div>
-      <div class="calc-result-row">
-        <span class="calc-result-label">메이커 수수료</span>
-        <span class="calc-result-val" style="color:var(--text2);">${fmt$(open*(MAKER_FEE)+targetPrice*(MAKER_FEE))}</span>
+      <div style="margin-top:10px;background:rgba(14,207,176,.08);border:1px solid rgba(14,207,176,.2);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">R:R 비율</div>
+        <div style="font-size:22px;font-weight:700;color:#0ecfb0;font-family:'JetBrains Mono',monospace;">1 : ${rr}</div>
+        <div style="font-size:10px;color:var(--text3);">손실 ${stopPct}% → 수익 ${target.toFixed(2)}%</div>
       </div>
-      <div class="calc-result-row">
-        <span class="calc-result-label">테이커 수수료</span>
-        <span class="calc-result-val" style="color:var(--text2);">${fmt$(open*(TAKER_FEE)+targetPrice*(TAKER_FEE))}</span>
+      <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
+        <div style="background:var(--bg3);border-radius:6px;padding:8px;text-align:center;">
+          <div style="color:var(--text3);">메이커 수수료</div>
+          <div style="color:var(--text);font-family:'JetBrains Mono',monospace;">${fmt$(open*(MAKER_FEE)+targetPrice*(MAKER_FEE))}</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:6px;padding:8px;text-align:center;">
+          <div style="color:var(--text3);">테이커 수수료</div>
+          <div style="color:var(--text);font-family:'JetBrains Mono',monospace;">${fmt$(open*(TAKER_FEE)+targetPrice*(TAKER_FEE))}</div>
+        </div>
       </div>
     </div>
-    ${isRisky ? `<div class="calc-warning">⚠ 고위험: ${calcState.lev}배 레버리지 — 강제청산가 ${fmt$(liqPrice)}</div>` : ''}
+    ${isRisky ? `<div class="calc-warning">⚠ 고위험: ${lev}배 레버리지 — 강제청산가 ${fmt$(liqPrice)}</div>` : ''}
     <div class="calc-notice">*수수료를 제외하고 계산 결과는 참고용으로만 사용하세요.</div>`;
 }
 
@@ -1748,18 +1769,134 @@ B점수/(A+B점수)×100 = 시나리오 B 확률
 
 스타일: A카드 초록 #22c55e / B카드 빨강 #f04444 / 확률 배지 우측 상단 / 목표가 큰 폰트
 
-각 시나리오 카드 하단에 포지션 계산기 추가 ("짧게 잃고 길게 먹는" R:R 전략):
-- 입력: 진입가(기본값=실시간가) / 주문유형(Maker 0.02% / Taker 0.05%) / 레버리지(1x/5x/10x/20x/50x) / 손절%(기본 0.6%) / 1차 익절%(기본 1.0%) / 2차 익절%(기본 1.5%)
-- 출력 (입력 변경 시 즉시 재계산):
-  - 수수료 반영 실질 1차 익절가
-  - 수수료 반영 실질 2차 익절가
-  - 손절가 / 청산가(강제)
-  - R:R 비율 (1차/2차)
-- 공식:
-  - 롱 익절가 = 진입가 × (1 + 목표%/레버리지/100 - 수수료율×2)
-  - 숏 익절가 = 진입가 × (1 - 목표%/레버리지/100 + 수수료율×2)
-  - 청산가(롱) = 진입가 × (1 - 1/레버리지)
-  - 청산가(숏) = 진입가 × (1 + 1/레버리지)
+각 시나리오 카드 하단에 아래 R:R 계산기를 그대로 복사해서 삽입해줘.
+시나리오 A는 id 접두사 "calcA_", 시나리오 B는 "calcB_"로 구분하고,
+시나리오 A는 isLong=true, 시나리오 B는 isLong=false로 설정해줘.
+진입가 기본값은 BTC 실시간가(${rtPrice ? fmt(rtPrice) : fmt(btcPrice)})로 설정해줘.
+
+[R:R 계산기 코드 — 그대로 복사]
+HTML:
+\`\`\`
+<div style="background:rgba(0,0,0,.2);border-radius:10px;padding:14px;margin-top:14px;">
+  <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#0ecfb0;margin-bottom:10px;">
+    ⚡ R:R 포지션 계산기 — "짧게 잃고 길게 먹는" 전략
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+    <div>
+      <div style="font-size:10px;color:#8892a4;margin-bottom:3px;">진입가 (USDT)</div>
+      <input id="calcA_entry" type="number" value="${rtPrice ? Math.round(rtPrice) : Math.round(btcPrice)}"
+        oninput="runCalcA()"
+        style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);
+        color:#e2e8f0;padding:7px 10px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;">
+    </div>
+    <div>
+      <div style="font-size:10px;color:#8892a4;margin-bottom:3px;">주문유형</div>
+      <select id="calcA_fee" onchange="runCalcA()"
+        style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);
+        color:#e2e8f0;padding:7px 10px;border-radius:6px;font-size:13px;outline:none;">
+        <option value="0.0002">Maker 0.02%</option>
+        <option value="0.0005">Taker 0.05%</option>
+      </select>
+    </div>
+    <div>
+      <div style="font-size:10px;color:#8892a4;margin-bottom:3px;">레버리지</div>
+      <select id="calcA_lev" onchange="runCalcA()"
+        style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);
+        color:#e2e8f0;padding:7px 10px;border-radius:6px;font-size:13px;outline:none;">
+        <option value="1">1x</option>
+        <option value="5">5x</option>
+        <option value="10" selected>10x</option>
+        <option value="20">20x</option>
+        <option value="50">50x</option>
+      </select>
+    </div>
+    <div>
+      <div style="font-size:10px;color:#8892a4;margin-bottom:3px;">손절 비율 (%)</div>
+      <input id="calcA_sl" type="number" value="0.6" step="0.1" oninput="runCalcA()"
+        style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);
+        color:#e2e8f0;padding:7px 10px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;">
+    </div>
+    <div>
+      <div style="font-size:10px;color:#8892a4;margin-bottom:3px;">1차 익절 (%)</div>
+      <input id="calcA_tp1" type="number" value="1.0" step="0.1" oninput="runCalcA()"
+        style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);
+        color:#e2e8f0;padding:7px 10px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;">
+    </div>
+    <div>
+      <div style="font-size:10px;color:#8892a4;margin-bottom:3px;">2차 익절 (%)</div>
+      <input id="calcA_tp2" type="number" value="1.5" step="0.1" oninput="runCalcA()"
+        style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);
+        color:#e2e8f0;padding:7px 10px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;">
+    </div>
+  </div>
+  <div id="calcA_out" style="background:rgba(14,207,176,.06);border:1px solid rgba(14,207,176,.2);
+    border-radius:8px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#e2e8f0;"></div>
+</div>
+\`\`\`
+
+JavaScript (</body> 직전에 삽입):
+\`\`\`
+<script>
+function runCalcA() {
+  const entry = parseFloat(document.getElementById('calcA_entry').value)||0;
+  const fee   = parseFloat(document.getElementById('calcA_fee').value)||0.0002;
+  const lev   = parseFloat(document.getElementById('calcA_lev').value)||10;
+  const sl    = parseFloat(document.getElementById('calcA_sl').value)||0.6;
+  const tp1   = parseFloat(document.getElementById('calcA_tp1').value)||1.0;
+  const tp2   = parseFloat(document.getElementById('calcA_tp2').value)||1.5;
+  const isLong = true; // 시나리오 A = 롱
+  const f = fee * 2;
+  const tp1p = isLong ? entry*(1+tp1/lev/100-f) : entry*(1-tp1/lev/100+f);
+  const tp2p = isLong ? entry*(1+tp2/lev/100-f) : entry*(1-tp2/lev/100+f);
+  const slp  = isLong ? entry*(1-sl/lev/100)    : entry*(1+sl/lev/100);
+  const liq  = isLong ? entry*(1-1/lev)          : entry*(1+1/lev);
+  const rr1  = Math.abs(tp1p-entry)/Math.abs(slp-entry);
+  const rr2  = Math.abs(tp2p-entry)/Math.abs(slp-entry);
+  const fmt  = v => '$'+Math.round(v).toLocaleString('en-US');
+  document.getElementById('calcA_out').innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
+    '<div>✅ 1차 익절가<br><span style="color:#22c55e;font-size:14px;">'+fmt(tp1p)+'</span></div>' +
+    '<div>✅ 2차 익절가<br><span style="color:#22c55e;font-size:14px;">'+fmt(tp2p)+'</span></div>' +
+    '<div>🛑 손절가<br><span style="color:#f04444;font-size:14px;">'+fmt(slp)+'</span></div>' +
+    '<div>⚡ 청산가<br><span style="color:#f59e0b;font-size:14px;">'+fmt(liq)+'</span></div>' +
+    '</div>' +
+    '<div style="margin-top:8px;text-align:center;color:#0ecfb0;">'+
+    'R:R = 1:'+rr1.toFixed(2)+' (1차) &nbsp;|&nbsp; 1:'+rr2.toFixed(2)+' (2차)</div>';
+}
+function runCalcB() {
+  const entry = parseFloat(document.getElementById('calcB_entry').value)||0;
+  const fee   = parseFloat(document.getElementById('calcB_fee').value)||0.0002;
+  const lev   = parseFloat(document.getElementById('calcB_lev').value)||10;
+  const sl    = parseFloat(document.getElementById('calcB_sl').value)||0.6;
+  const tp1   = parseFloat(document.getElementById('calcB_tp1').value)||1.0;
+  const tp2   = parseFloat(document.getElementById('calcB_tp2').value)||1.5;
+  const isLong = false; // 시나리오 B = 숏
+  const f = fee * 2;
+  const tp1p = isLong ? entry*(1+tp1/lev/100-f) : entry*(1-tp1/lev/100+f);
+  const tp2p = isLong ? entry*(1+tp2/lev/100-f) : entry*(1-tp2/lev/100+f);
+  const slp  = isLong ? entry*(1-sl/lev/100)    : entry*(1+sl/lev/100);
+  const liq  = isLong ? entry*(1-1/lev)          : entry*(1+1/lev);
+  const rr1  = Math.abs(tp1p-entry)/Math.abs(slp-entry);
+  const rr2  = Math.abs(tp2p-entry)/Math.abs(slp-entry);
+  const fmt  = v => '$'+Math.round(v).toLocaleString('en-US');
+  document.getElementById('calcB_out').innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
+    '<div>✅ 1차 익절가<br><span style="color:#22c55e;font-size:14px;">'+fmt(tp1p)+'</span></div>' +
+    '<div>✅ 2차 익절가<br><span style="color:#22c55e;font-size:14px;">'+fmt(tp2p)+'</span></div>' +
+    '<div>🛑 손절가<br><span style="color:#f04444;font-size:14px;">'+fmt(slp)+'</span></div>' +
+    '<div>⚡ 청산가<br><span style="color:#f59e0b;font-size:14px;">'+fmt(liq)+'</span></div>' +
+    '</div>' +
+    '<div style="margin-top:8px;text-align:center;color:#0ecfb0;">'+
+    'R:R = 1:'+rr1.toFixed(2)+' (1차) &nbsp;|&nbsp; 1:'+rr2.toFixed(2)+' (2차)</div>';
+}
+window.onload = function() {
+  if(document.getElementById('calcA_entry')) runCalcA();
+  if(document.getElementById('calcB_entry')) runCalcB();
+};
+<\/script>
+\`\`\`
+
+시나리오 B 계산기는 위 코드에서 calcA_ → calcB_, runCalcA → runCalcB, isLong=false로 변경해서 삽입해줘.
 
 6. **핵심 리스크**
    - 현재 가장 주목할 위험 요소
