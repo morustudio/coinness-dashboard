@@ -345,7 +345,7 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
 <header>
   <div class="dot"></div>
   <h1>코인니스 선물 지표</h1>
-  <span class="badge">v2.004</span>
+  <span class="badge">v2.005</span>
   <span class="pc-only">펀딩피 기준 + 시간대별 수집</span>
   <div class="header-right">
     <!-- 실시간 BTC -->
@@ -416,6 +416,7 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
     <div class="calc-tabs">
       <div class="calc-tab active" onclick="switchCalcTab('profit')">수익</div>
       <div class="calc-tab" onclick="switchCalcTab('target')">목표 가격</div>
+      <div class="calc-tab" onclick="switchCalcTab('rr')">R:R 전략</div>
     </div>
     <div class="calc-body">
       <!-- 공통: 자산 + 수수료 -->
@@ -484,6 +485,34 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
         </div>
         <div id="targetResult" style="display:none"></div>
       </div>
+
+      <!-- R:R 전략 탭 -->
+      <div id="tabRR" style="display:none">
+        <div style="font-size:11px;color:#0ecfb0;background:rgba(14,207,176,.08);border:1px solid rgba(14,207,176,.2);border-radius:6px;padding:8px 12px;margin-bottom:12px;">
+          💡 "짧게 잃고 길게 먹는" 손익비(R:R) 전략 — 수수료 반영 실질 가격 계산
+        </div>
+        <div class="calc-field">
+          <label>진입 가격</label>
+          <div class="calc-field-row"><input type="number" id="rrEntryPrice" placeholder="0.00"><span>USDT</span></div>
+        </div>
+        <div class="calc-field">
+          <label>손절 비율 (%)</label>
+          <div class="calc-field-row"><input type="number" id="rrStopPct" placeholder="0.6" value="0.6" step="0.1"><span>%</span></div>
+        </div>
+        <div class="calc-field">
+          <label>1차 익절 목표 (%)</label>
+          <div class="calc-field-row"><input type="number" id="rrTp1Pct" placeholder="1.0" value="1.0" step="0.1"><span>%</span></div>
+        </div>
+        <div class="calc-field">
+          <label>2차 익절 목표 (%)</label>
+          <div class="calc-field-row"><input type="number" id="rrTp2Pct" placeholder="1.5" value="1.5" step="0.1"><span>%</span></div>
+        </div>
+        <div class="calc-btns">
+          <button class="calc-btn-reset" onclick="resetCalc()">초기화</button>
+          <button class="calc-btn-calc" onclick="calcRR()">계산</button>
+        </div>
+        <div id="rrResult" style="display:none"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -532,11 +561,11 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
           CSV 내보내기
         </button>
         <div style="display:flex;gap:4px;" id="periodBtns">
-          <button class="btn" onclick="setPeriod(1)">1일</button>
+          <button class="btn active" onclick="setPeriod(1)">1일</button>
           <button class="btn" onclick="setPeriod(7)">7일</button>
           <button class="btn" onclick="setPeriod(30)">30일</button>
           <button class="btn" onclick="setPeriod(90)">90일</button>
-          <button class="btn active" onclick="setPeriod(0)">전체</button>
+          <button class="btn" onclick="setPeriod(0)">전체</button>
         </div>
       </div>
     </div>
@@ -652,7 +681,7 @@ main{padding:20px 28px;display:flex;flex-direction:column;gap:16px;}
 <script>
 // ── 상태 ────────────────────────────────────────────────────
 let allData = [];
-let currentPeriod = 0;
+let currentPeriod = 1;
 let currentTf = '1시간';
 let isLight = false;
 let chartInstances = {};
@@ -887,8 +916,10 @@ function openCalc() {
     const price = rtPrice.textContent.replace(/[$,]/g,'');
     const pOpen = document.getElementById('pOpenPrice');
     const tOpen = document.getElementById('tOpenPrice');
-    if (pOpen && !pOpen.value) pOpen.value = price;
-    if (tOpen && !tOpen.value) tOpen.value = price;
+    const rrEntry = document.getElementById('rrEntryPrice');
+    if (pOpen && !pOpen.value)   pOpen.value = price;
+    if (tOpen && !tOpen.value)   tOpen.value = price;
+    if (rrEntry && !rrEntry.value) rrEntry.value = price;
   }
 }
 
@@ -900,10 +931,11 @@ function closeCalc() {
 function switchCalcTab(tab) {
   calcState.tab = tab;
   document.querySelectorAll('.calc-tab').forEach((t,i) =>
-    t.classList.toggle('active', (i===0&&tab==='profit')||(i===1&&tab==='target'))
+    t.classList.toggle('active', (i===0&&tab==='profit')||(i===1&&tab==='target')||(i===2&&tab==='rr'))
   );
   document.getElementById('tabProfit').style.display = tab==='profit' ? 'block' : 'none';
   document.getElementById('tabTarget').style.display = tab==='target' ? 'block' : 'none';
+  document.getElementById('tabRR').style.display     = tab==='rr'     ? 'block' : 'none';
 }
 
 function setFeeType(type) {
@@ -938,16 +970,107 @@ function fmt$(v) { return '$' + Math.abs(v).toLocaleString('en-US',{minimumFract
 function fmtPct(v) { return (v>=0?'+':'')+v.toFixed(4)+'%'; }
 
 function resetCalc() {
-  ['pOpenPrice','pClosePrice','pQty','tOpenPrice','tTarget'].forEach(id => {
+  ['pOpenPrice','pClosePrice','pQty','tOpenPrice','tTarget','rrEntryPrice'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
-  document.getElementById('profitResult').style.display = 'none';
-  document.getElementById('targetResult').style.display = 'none';
+  document.getElementById('rrStopPct').value = '0.6';
+  document.getElementById('rrTp1Pct').value  = '1.0';
+  document.getElementById('rrTp2Pct').value  = '1.5';
+  ['profitResult','targetResult','rrResult'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
   setFeeType('maker'); setPosition('long'); setLev(1);
   calcState.targetUnit = 'pct';
   document.getElementById('tTargetUnit').textContent = '%';
   document.querySelector('.calc-field-sub').textContent = 'USDT로 입력하기';
+}
+
+function calcRR() {
+  const entry   = parseFloat(document.getElementById('rrEntryPrice').value);
+  const stopPct = parseFloat(document.getElementById('rrStopPct').value) || 0.6;
+  const tp1Pct  = parseFloat(document.getElementById('rrTp1Pct').value)  || 1.0;
+  const tp2Pct  = parseFloat(document.getElementById('rrTp2Pct').value)  || 1.5;
+  if (isNaN(entry)||entry<=0) { alert('진입 가격을 입력해주세요.'); return; }
+
+  const fee    = calcState.feeType === 'maker' ? MAKER_FEE : TAKER_FEE;
+  const lev    = calcState.lev;
+  const isLong = calcState.position === 'long';
+  const feeTotal = fee * 2;
+
+  // 수수료 반영 실질 가격 계산
+  const tp1Price  = isLong
+    ? entry * (1 + tp1Pct/lev/100 - feeTotal)
+    : entry * (1 - tp1Pct/lev/100 + feeTotal);
+  const tp2Price  = isLong
+    ? entry * (1 + tp2Pct/lev/100 - feeTotal)
+    : entry * (1 - tp2Pct/lev/100 + feeTotal);
+  const stopPrice = isLong
+    ? entry * (1 - stopPct/lev/100)
+    : entry * (1 + stopPct/lev/100);
+  const liqPrice  = isLong
+    ? entry * (1 - 1/lev)
+    : entry * (1 + 1/lev);
+
+  // R:R 비율
+  const reward1 = Math.abs(tp1Price - entry);
+  const reward2 = Math.abs(tp2Price - entry);
+  const risk    = Math.abs(stopPrice - entry);
+  const rr1     = risk > 0 ? (reward1/risk).toFixed(2) : '-';
+  const rr2     = risk > 0 ? (reward2/risk).toFixed(2) : '-';
+
+  // 레버리지 반영 수익률
+  const tp1Roe  = (tp1Pct).toFixed(2);
+  const tp2Roe  = (tp2Pct).toFixed(2);
+  const stopRoe = (stopPct).toFixed(2);
+  const isRisky = lev >= 20;
+
+  const el = document.getElementById('rrResult');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="calc-result">
+      <div style="font-size:11px;color:#0ecfb0;font-family:'Noto Sans KR',sans-serif;margin-bottom:8px;">
+        ${isLong ? '📈 롱 포지션' : '📉 숏 포지션'} · ${lev}x · ${calcState.feeType==='maker'?'메이커':'테이커'}(${(fee*100).toFixed(2)}%)
+      </div>
+      <div class="calc-result-row" style="font-weight:700;">
+        <span class="calc-result-label">진입가</span>
+        <span class="calc-result-val" style="color:#0ecfb0">${fmt$(entry)}</span>
+      </div>
+      <div class="calc-result-row">
+        <span class="calc-result-label">✅ 1차 익절가 <small style="color:var(--text3)">(수수료 반영)</small></span>
+        <span class="calc-result-val ${isLong?'pos':'neg'}">${fmt$(tp1Price)}</span>
+      </div>
+      <div class="calc-result-row">
+        <span class="calc-result-label">✅ 2차 익절가 <small style="color:var(--text3)">(수수료 반영)</small></span>
+        <span class="calc-result-val ${isLong?'pos':'neg'}">${fmt$(tp2Price)}</span>
+      </div>
+      <div class="calc-result-row">
+        <span class="calc-result-label">🛑 손절가</span>
+        <span class="calc-result-val neg">${fmt$(stopPrice)}</span>
+      </div>
+      <div class="calc-result-row">
+        <span class="calc-result-label">⚡ 청산가 (강제)</span>
+        <span class="calc-result-val warn">${fmt$(liqPrice)}</span>
+      </div>
+      <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="background:rgba(14,207,176,.08);border:1px solid rgba(14,207,176,.2);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">R:R (1차)</div>
+          <div style="font-size:20px;font-weight:700;color:#0ecfb0;font-family:'JetBrains Mono',monospace;">1 : ${rr1}</div>
+          <div style="font-size:10px;color:var(--text3);">손실 ${stopRoe}% → 수익 ${tp1Roe}%</div>
+        </div>
+        <div style="background:rgba(14,207,176,.08);border:1px solid rgba(14,207,176,.2);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">R:R (2차)</div>
+          <div style="font-size:20px;font-weight:700;color:#0ecfb0;font-family:'JetBrains Mono',monospace;">1 : ${rr2}</div>
+          <div style="font-size:10px;color:var(--text3);">손실 ${stopRoe}% → 수익 ${tp2Roe}%</div>
+        </div>
+      </div>
+    </div>
+    ${isRisky ? `<div class="calc-warning">⚠ 고위험: ${lev}배 레버리지 — 청산가 ${fmt$(liqPrice)}</div>` : ''}
+    <div class="calc-notice">*수수료를 제외하고 계산 결과는 참고용으로만 사용하세요.</div>`;
+
+  // R:R 전략 진입가 자동 입력 (팝업 열 때)
+  document.getElementById('rrEntryPrice').dataset.computed = 'true';
 }
 
 function calcProfit() {
@@ -1505,16 +1628,110 @@ ${rtDiff !== null ? `- 수집 후 가격 변화: ${rtDiff >= 0 ? '▲ +' : '▼ 
 ## 규칙 기반 감지 신호
 ${signals.length?signals.join('\n'):'⚪ 특이 신호 없음'}
 
-## 분석 요청
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+## 분석 판단 기준 (반드시 아래 기준으로 판단)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-1. **시장 심리 판단** — 펀딩비 추이와 롱숏 비율 기반
-2. **청산 압력 분석** — 청산 방향과 규모의 의미
-3. **거래소 괴리 해석** — 거래소 간 펀딩비 차이의 시사점
-4. **미결제약정 흐름** — OI 변화가 나타내는 포지션 동향
+### 지표 우선순위 (높을수록 중요)
+1순위: OI 방향 변화
+2순위: 청산 방향 + 규모
+3순위: 바이낸스 펀딩비 방향
+4순위: 김치프리미엄
+5순위: 롱숏 비율 (참고용)
+
+### 시나리오 확률 채점표 (총 100점)
+아래 5개 항목을 각 20점으로 채점 후
+A점수/(A+B점수)×100 = 시나리오 A 확률
+B점수/(A+B점수)×100 = 시나리오 B 확률
+
+[OI 방향]
+- OI 직전 대비 +0.02B 이상 증가 → A +20점
+- OI 횡보 (±0.02B 이내) → A/B 각 +10점
+- OI 직전 대비 -0.02B 이상 감소 → B +20점
+
+[청산 방향]
+- 숏 청산 60% 이상 우세 → A +20점
+- 롱/숏 50%대 혼조 → A/B 각 +10점
+- 롱 청산 60% 이상 우세 → B +20점
+
+[바이낸스 펀딩비]
+- 0% 이하로 수렴 또는 음수 → A +20점
+- 0% ~ +0.003% 중립 → A/B 각 +10점
+- +0.004% 이상 양수 → B +20점
+
+[김치프리미엄]
+- +0.5% 이상 양프 → A +20점
+- -0.3% ~ +0.5% 중립 → A/B 각 +10점
+- -0.3% 이하 역프 → B +20점
+
+[가격 추세]
+- 직전 3시점 대비 가격 상승 유지 → A +20점
+- 횡보 ($200 이내) → A/B 각 +10점
+- 직전 3시점 대비 가격 하락 유지 → B +20점
+
+### 조건 충족 아이콘 기준
+✓ 충족: 해당 조건 수치 기준 완전 충족
+◐ 부분: 경계값 ±10% 이내 또는 방향만 맞고 수치 미달
+✗ 미충족: 조건 미달
+
+### 대형 청산 이벤트 해석 규칙
+롱 청산 90% 이상 + 청산금액 100M 이상 발생 시:
+- OI 감소 동반 → 포지션 소멸, 하락 에너지 약화 (반등 신호)
+- OI 유지/증가 → 신규 숏 진입 확인, 추가 하락 압력 (하락 신호)
+
+### 펀딩비 지급 시간 전후 패턴 적용
+정산_30분전 타이밍 감지 시:
+- 펀딩비 양수 → 롱 정리 매도 압력 예상
+- 펀딩비 음수 → 숏 정리 매수 압력 예상
+정산_기준 이후 반대 방향 복귀 패턴 확인할 것
+
+### 거래소 간 괴리폭 해석 기준
+0.000% ~ 0.005%p → 정상, 기관 헤지 해소
+0.005% ~ 0.010%p → 주의, 방향성 분열
+0.010%p 이상 → 위험, 기관 헤지 심화 또는 차익거래 대기
+
+### 김프 해석 기준
++0.5% 이상 → 국내 강한 매수세, 상승 신호
+0% ~ +0.5% → 중립
+-0.3% ~ 0% → 약한 역프, 주의
+-0.3% 이하 → 역프 심화, 하락 압력
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+## 분석 요청
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. **시장 심리 판단**
+   - 펀딩비 추이와 롱숏 비율 기반
+   - 정산 타이밍 전후 패턴 포함
+   - 기관 vs 개인 심리 분열 여부 명시
+
+2. **청산 압력 분석**
+   - 청산 방향과 규모의 의미
+   - 대형 청산 이벤트 발생 시 OI 연동 해석 적용
+   - 청산 에너지 소진 여부 판단
+
+3. **거래소 괴리 해석**
+   - 거래소 간 펀딩비 차이의 시사점
+   - 괴리폭 기준표 적용하여 단계 명시
+   - 수렴 방향 예측
+
+4. **미결제약정 흐름**
+   - OI 변화가 나타내는 포지션 동향
+   - 신규 진입 vs 청산 소멸 구분
+   - 다음 방향 에너지 판단
 
 5. **단기 시나리오 A/B + 권장 포지션**
 
-아래 데이터를 분석해서 "시나리오 A/B + 권장 포지션" 카드로 시각화해줘.
+아래 채점표를 실제로 계산해서 확률을 도출하고 "시나리오 A/B + 권장 포지션" 카드로 시각화해줘.
+
+[채점 과정을 먼저 표시]
+- OI: _점 (A) / _점 (B) — 근거
+- 청산: _점 (A) / _점 (B) — 근거
+- 펀딩비: _점 (A) / _점 (B) — 근거
+- 김프: _점 (A) / _점 (B) — 근거
+- 가격추세: _점 (A) / _점 (B) — 근거
+- 합계: A _점 / B _점
+- 시나리오 A 확률: _% / 시나리오 B 확률: _%
 
 [분석 데이터]
 - BTC 선물 실시간가: ${rtPrice ? fmt(rtPrice) : fmt(btcPrice)} ${rtPrice ? '(실시간 기준)' : '(수집가 기준)'}
@@ -1524,50 +1741,47 @@ ${signals.length?signals.join('\n'):'⚪ 특이 신호 없음'}
 - 숏 손절선: ${shortStop} (현재가 +0.5%)
 
 카드 구성:
-- 좌측: 시나리오 A (반등) — 확률 / 조건(충족여부 표시) / 목표가 / 진입조건 / 손절선 / 주의사항
-- 우측: 시나리오 B (하락) — 확률 / 조건(충족여부 표시) / 목표가 / 진입조건 / 손절선 / 주의사항 (펀딩비 보유비용 포함)
-- 하단: 공통 판단 기준 (핵심 지표 2개 + 관망 조건)
+- 좌측: 시나리오 A (반등) — 확률 배지 / 조건 ✓◐✗ / 목표가 강조 / 진입조건 / 손절선 / 주의사항
+- 우측: 시나리오 B (하락) — 확률 배지 / 조건 ✓◐✗ / 목표가 강조 / 진입조건 / 손절선 / 펀딩비 보유비용 포함 주의사항
+- 하단: 공통 판단 기준 (핵심지표① / 핵심지표② / 관망조건)
 
-스타일 조건:
-- 시나리오 A: 초록색 테두리 (#22c55e), 조건 앞 ✓/✗ 아이콘
-- 시나리오 B: 빨간색 테두리 (#f04444), 조건 앞 ✓/✗ 아이콘
-- 확률 배지: 우측 상단 둥근 배지
-- 목표가: 큰 폰트로 강조
-- 권장 포지션 박스: 카드 하단 반투명 배경 박스
+스타일: A카드 초록 #22c55e / B카드 빨강 #f04444 / 확률 배지 우측 상단 / 목표가 큰 폰트
 
-6. **핵심 리스크** — 현재 가장 주목해야 할 위험 요소와 대응 방향
+각 시나리오 카드 하단에 포지션 계산기 추가 ("짧게 잃고 길게 먹는" R:R 전략):
+- 입력: 진입가(기본값=실시간가) / 주문유형(Maker 0.02% / Taker 0.05%) / 레버리지(1x/5x/10x/20x/50x) / 손절%(기본 0.6%) / 1차 익절%(기본 1.0%) / 2차 익절%(기본 1.5%)
+- 출력 (입력 변경 시 즉시 재계산):
+  - 수수료 반영 실질 1차 익절가
+  - 수수료 반영 실질 2차 익절가
+  - 손절가 / 청산가(강제)
+  - R:R 비율 (1차/2차)
+- 공식:
+  - 롱 익절가 = 진입가 × (1 + 목표%/레버리지/100 - 수수료율×2)
+  - 숏 익절가 = 진입가 × (1 - 목표%/레버리지/100 + 수수료율×2)
+  - 청산가(롱) = 진입가 × (1 - 1/레버리지)
+  - 청산가(숏) = 진입가 × (1 + 1/레버리지)
 
----
+6. **핵심 리스크**
+   - 현재 가장 주목할 위험 요소
+   - 대응 방향 구체적 수치 포함
+   - 다음 정산 시간 전후 주의사항 포함
 
-## 출력 형식 요청
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+## 출력 형식
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 위 1~6번 분석 결과 전체를 **"BTC 선물 시장 심층 분석"** 제목의 HTML 문서로 작성해줘.
 
-### 디자인 조건
+디자인 조건:
 - 배경: 다크 (#070b14), 카드 레이아웃
 - 폰트: Rajdhani(제목) + Noto Sans KR(본문) + JetBrains Mono(수치)
-- 헤더: "BTC 선물 시장 심층 분석" 제목 + 우측에 분석 생성일시 "${genTime}" 표시
-- 헤더 하단: 수집 기준시각 + BTC 실시간가 / 수집가 배지 표시
-- **1~4번**: 2열 그리드 분석 카드 (상단 라인 포인트)
-- **5번 시나리오 A/B**: 좌우 2열 카드
-  - 시나리오 A: 초록 테두리 (#22c55e), 확률 배지, 조건 ✓/✗/◐, 목표가 강조, 진입/손절/R:R 테이블, 주의사항
-  - 시나리오 B: 빨간 테두리 (#f04444), 동일 구성 + 펀딩비 보유비용 테이블 추가
-  - 각 시나리오 카드 하단에 **포지션 계산기** 추가:
-    - 입력: 주문유형(지정가 Maker 0.02% / 시장가 Taker 0.05%), 레버리지(1x/3x/5x/10x/20x), 목표수익(1%/2%/5%/직접입력)
-    - 출력 (입력 변경 시 즉시 재계산):
-      - 수수료 반영 실질 익절가 (1차/2차)
-      - 손절가 / 청산가
-      - R:R 비율
-    - 계산 공식:
-      - 숏 익절가 = 진입가 × (1 - 목표수익%/레버리지 - 수수료율×2)
-      - 롱 익절가 = 진입가 × (1 + 목표수익%/레버리지 - 수수료율×2)
-      - 청산가(숏) = 진입가 × (1 + 1/레버리지)
-      - 청산가(롱) = 진입가 × (1 - 1/레버리지)
-    - 진입가 변경 시 목표가/손절가 동일 비율로 자동 재계산
-- **공통 판단 기준**: 3열 하단 패널 (핵심지표①, 핵심지표②, 관망조건)
-- **6번 리스크**: 2×2 그리드 카드 (빨간 테두리)
+- 헤더: 제목 + 우측에 생성일시 "${genTime}" 표시
+- 헤더 하단: 수집시각 + 실시간가/수집가 배지
+- 1~4번: 2열 그리드 분석 카드 (상단 라인 포인트)
+- 5번: 좌우 2열 시나리오 카드 + 각 카드 하단 R:R 포지션 계산기
+- 공통판단: 3열 하단 패널
+- 6번 리스크: 2×2 그리드 (빨간 테두리)
 - 하단 면책문구: "본 분석은 투자 권유가 아닙니다"
-- 모바일 반응형 포함 (700px 이하 1열)
+- 모바일 반응형 (700px 이하 1열)
 
 분석 결과를 위 디자인 조건대로 웹페이지로 시각화해줘. 아티팩트로 렌더링해서 미리보기와 공개 URL 생성이 가능하게 해줘.`;
 
