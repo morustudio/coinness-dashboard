@@ -596,13 +596,13 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 
   <!-- 롱숏비율 -->
   <div>
-    <div class="section-title" id="lsTitle">롱숏 비율 (1시간)</div>
+    <div class="section-title" id="lsTitle">롱숏 비율</div>
     <div class="card" id="lsCard"><div style="color:var(--text3);padding:20px;text-align:center;">데이터 없음</div></div>
   </div>
 
   <!-- 강제청산 -->
   <div>
-    <div class="section-title" id="liqTitle">강제청산 (1시간)</div>
+    <div class="section-title" id="liqTitle">강제청산</div>
     <div class="card" id="liqCard"><div style="color:var(--text3);padding:20px;text-align:center;">데이터 없음</div></div>
   </div>
 
@@ -1326,6 +1326,39 @@ function getRow() {
   });
 }
 
+function getRowsAllTf() {
+  const key     = document.getElementById('sessionSel').value;
+  const timing  = document.getElementById('timingSel').value;
+  const date    = key.slice(0,5);
+  const session = key.slice(6);
+  const tfs     = ['1시간','4시간','12시간','24시간'];
+
+  if (timing === '일반') {
+    const sorted = [...allData].sort((a,b)=>(b['수집시간']||'').localeCompare(a['수집시간']||''));
+    const row = sorted.find(d => d['타이밍']==='일반' && (d['시간대']||'1시간')==='1시간') || null;
+    return row ? [{tf:'1시간', row}] : [];
+  }
+
+  if (timing === '정산_기준') {
+    const sorted = [...allData].sort((a,b)=>(b['수집시간']||'').localeCompare(a['수집시간']||''));
+    return tfs.map(tf => {
+      let row = allData.find(d => {
+        const dDate = (d['수집시간']||'').slice(5,10);
+        return dDate===date && d['정산회차']===session && d['타이밍']==='정산_기준' && (d['시간대']||'1시간')===tf;
+      });
+      if (!row) row = sorted.find(d => d['타이밍']==='정산_기준' && (d['시간대']||'1시간')===tf) || null;
+      return row ? {tf, row} : null;
+    }).filter(Boolean);
+  }
+
+  // 기타 타이밍: 1시간만 존재
+  const row = allData.find(d => {
+    const dDate = (d['수집시간']||'').slice(5,10);
+    return dDate===date && d['정산회차']===session && d['타이밍']===timing && (d['시간대']||'1시간')==='1시간';
+  });
+  return row ? [{tf:'1시간', row}] : [];
+}
+
 // ── 기간 필터 ─────────────────────────────────────────────
 function setPeriod(days) {
   currentPeriod = days;
@@ -1380,13 +1413,14 @@ function makeXLabel(r) {
 
 // ── 렌더링: 상단 카드 ─────────────────────────────────────
 function render() {
-  // 섹션 타이틀 업데이트
   const lsT = document.getElementById('lsTitle');
   const liqT = document.getElementById('liqTitle');
-  if (lsT)  lsT.textContent  = `롱숏 비율 (${currentTf})`;
-  if (liqT) liqT.textContent = `강제청산 (${currentTf})`;
+  if (lsT)  lsT.textContent  = '롱숏 비율';
+  if (liqT) liqT.textContent = '강제청산';
 
   const row = getRow();
+  const tfRows = getRowsAllTf();
+
   if (!row) {
     ['statRow','lsCard','liqCard','fundCard','oiCard'].forEach(id => {
       document.getElementById(id).innerHTML = '<div style="color:var(--text3);padding:20px;text-align:center;">선택한 조건의 데이터가 없습니다.</div>';
@@ -1394,19 +1428,19 @@ function render() {
     return;
   }
 
-  // 4h/12h/24h는 최근 정산_기준 데이터 사용 안내
-  if (currentTf !== '1시간') {
-    const notice = document.getElementById('tfNotice');
-    if (notice) {
+  // 4h/12h/24h + 정산_기준 아닌 타이밍은 최근 정산_기준 fallback 안내
+  const timingVal = document.getElementById('timingSel').value;
+  const notice = document.getElementById('tfNotice');
+  if (notice) {
+    if (currentTf !== '1시간' && timingVal !== '정산_기준') {
       notice.textContent = `※ ${currentTf} 데이터 — 최근 정산 기준: ${(row['수집시간']||'').slice(5)} (${row['정산회차']||''})`;
       notice.style.display = 'block';
+    } else {
+      notice.style.display = 'none';
     }
-  } else {
-    const notice = document.getElementById('tfNotice');
-    if (notice) notice.style.display = 'none';
   }
 
-  renderStat(row); renderLS(row); renderLiq(row); renderFund(row); renderOI(row);
+  renderStat(row); renderLS(tfRows); renderLiq(tfRows); renderFund(row); renderOI(row);
 }
 
 function renderStat(row) {
@@ -1425,24 +1459,64 @@ function renderStat(row) {
   `;
 }
 
-function renderLS(row) {
-  const lv = parseFloat(row['롱숏_롱'])||0;
-  document.getElementById('lsCard').innerHTML = `
-    <div class="ls-labels"><span class="long-val">${row['롱숏_롱']||'-'}</span><span class="short-val">${row['롱숏_숏']||'-'}</span></div>
-    <div class="big-bar"><div class="long-seg" style="width:${lv}%"></div><div class="short-seg"></div></div>
-    <div class="ls-sub"><span>롱포지션</span><span>숏포지션</span></div>`;
+function renderLS(tfRows) {
+  if (!tfRows.length) {
+    document.getElementById('lsCard').innerHTML = '<div style="color:var(--text3);padding:20px;text-align:center;">선택한 조건의 데이터가 없습니다.</div>';
+    return;
+  }
+  if (tfRows.length === 1) {
+    const {row} = tfRows[0];
+    const lv = parseFloat(row['롱숏_롱'])||0;
+    document.getElementById('lsCard').innerHTML = `
+      <div class="ls-labels"><span class="long-val">${row['롱숏_롱']||'-'}</span><span class="short-val">${row['롱숏_숏']||'-'}</span></div>
+      <div class="big-bar"><div class="long-seg" style="width:${lv}%"></div><div class="short-seg"></div></div>
+      <div class="ls-sub"><span>롱포지션</span><span>숏포지션</span></div>`;
+    return;
+  }
+  document.getElementById('lsCard').innerHTML = tfRows.map(({tf, row}) => {
+    const lv = parseFloat(row['롱숏_롱'])||0;
+    const active = tf === currentTf;
+    return `<div style="padding:8px;border-radius:6px;margin-bottom:4px;${active?'background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);':'opacity:0.65;'}">
+      <div style="font-size:10px;color:${active?'#3b82f6':'var(--text3)'};font-weight:${active?700:400};margin-bottom:4px;">${tf}</div>
+      <div class="ls-labels"><span class="long-val">${row['롱숏_롱']||'-'}</span><span class="short-val">${row['롱숏_숏']||'-'}</span></div>
+      <div class="big-bar" style="height:10px;"><div class="long-seg" style="width:${lv}%"></div><div class="short-seg"></div></div>
+      <div class="ls-sub" style="font-size:10px;margin-top:2px;"><span>롱포지션</span><span>숏포지션</span></div>
+    </div>`;
+  }).join('');
 }
 
-function renderLiq(row) {
-  const br = row['청산비율']||'-';
-  const isL = br.includes('롱');
-  document.getElementById('liqCard').innerHTML = `
-    <div class="liq-grid">
-      <div class="liq-item"><div class="liq-label">청산금액</div><div class="liq-val neutral">${row['청산금액']||'-'}</div></div>
-      <div class="liq-item"><div class="liq-label">롱포지션 청산</div><div class="liq-val long">${row['청산_롱']||'-'}</div></div>
-      <div class="liq-item"><div class="liq-label">숏포지션 청산</div><div class="liq-val short">${row['청산_숏']||'-'}</div></div>
-      <div class="liq-item"><div class="liq-label">청산 비율</div><div class="liq-val ${isL?'long':'short'}">${br}</div></div>
+function renderLiq(tfRows) {
+  if (!tfRows.length) {
+    document.getElementById('liqCard').innerHTML = '<div style="color:var(--text3);padding:20px;text-align:center;">선택한 조건의 데이터가 없습니다.</div>';
+    return;
+  }
+  if (tfRows.length === 1) {
+    const {row} = tfRows[0];
+    const br = row['청산비율']||'-';
+    const isL = br.includes('롱');
+    document.getElementById('liqCard').innerHTML = `
+      <div class="liq-grid">
+        <div class="liq-item"><div class="liq-label">청산금액</div><div class="liq-val neutral">${row['청산금액']||'-'}</div></div>
+        <div class="liq-item"><div class="liq-label">롱포지션 청산</div><div class="liq-val long">${row['청산_롱']||'-'}</div></div>
+        <div class="liq-item"><div class="liq-label">숏포지션 청산</div><div class="liq-val short">${row['청산_숏']||'-'}</div></div>
+        <div class="liq-item"><div class="liq-label">청산 비율</div><div class="liq-val ${isL?'long':'short'}">${br}</div></div>
+      </div>`;
+    return;
+  }
+  document.getElementById('liqCard').innerHTML = tfRows.map(({tf, row}) => {
+    const br = row['청산비율']||'-';
+    const isL = br.includes('롱');
+    const active = tf === currentTf;
+    return `<div style="padding:8px;border-radius:6px;margin-bottom:4px;${active?'background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);':'opacity:0.65;'}">
+      <div style="font-size:10px;color:${active?'#3b82f6':'var(--text3)'};font-weight:${active?700:400};margin-bottom:6px;">${tf}</div>
+      <div class="liq-grid">
+        <div class="liq-item"><div class="liq-label">청산금액</div><div class="liq-val neutral">${row['청산금액']||'-'}</div></div>
+        <div class="liq-item"><div class="liq-label">롱포지션 청산</div><div class="liq-val long">${row['청산_롱']||'-'}</div></div>
+        <div class="liq-item"><div class="liq-label">숏포지션 청산</div><div class="liq-val short">${row['청산_숏']||'-'}</div></div>
+        <div class="liq-item"><div class="liq-label">청산 비율</div><div class="liq-val ${isL?'long':'short'}">${br}</div></div>
+      </div>
     </div>`;
+  }).join('');
 }
 
 function renderFund(row) {
@@ -1534,9 +1608,12 @@ function scaleX(tc) { return {ticks:{font:{size:10},color:tc,maxRotation:45,minR
 function scaleY(tc,gc,cb) { return {ticks:{font:{size:11},color:tc,callback:cb},grid:{color:gc}}; }
 
 function renderCharts() {
-  const rows = getFilteredRows();
-  if (!rows.length) return;
+  const allRows = getFilteredRows();
+  if (!allRows.length) return;
   const {tc,gc} = baseScale();
+  // 4개 차트(펀딩/미결제/청산/롱숏)는 1시간 데이터만 사용 (중복 제거)
+  const rows = allRows.filter(d => (d['시간대']||'1시간') === '1시간');
+  if (!rows.length) return;
   const labels = rows.map(makeXLabel);
 
   // BTC (중복 제거: 수집시간 기준 unique)
