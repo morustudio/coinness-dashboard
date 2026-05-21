@@ -1086,15 +1086,17 @@ function calcRR() {
   const feeTotal = fee * 2;
 
   // 수수료 반영 실질 가격 계산
+  // 롱 익절: 수수료만큼 더 높은 가격에서 팔아야 목표 순이익 달성 (+fee)
+  // 롱 손절: 수수료를 내므로 더 일찍 손절됨 (+fee)
   const tp1Price  = isLong
-    ? entry * (1 + tp1Pct/lev/100 - feeTotal)
-    : entry * (1 - tp1Pct/lev/100 + feeTotal);
+    ? entry * (1 + tp1Pct/lev/100 + feeTotal)
+    : entry * (1 - tp1Pct/lev/100 - feeTotal);
   const tp2Price  = isLong
-    ? entry * (1 + tp2Pct/lev/100 - feeTotal)
-    : entry * (1 - tp2Pct/lev/100 + feeTotal);
+    ? entry * (1 + tp2Pct/lev/100 + feeTotal)
+    : entry * (1 - tp2Pct/lev/100 - feeTotal);
   const stopPrice = isLong
-    ? entry * (1 - stopPct/lev/100)
-    : entry * (1 + stopPct/lev/100);
+    ? entry * (1 - stopPct/lev/100 + feeTotal)
+    : entry * (1 + stopPct/lev/100 - feeTotal);
   const liqPrice  = isLong
     ? entry * (1 - 1/lev)
     : entry * (1 + 1/lev);
@@ -1979,9 +1981,9 @@ function runCalcA() {
   const tp2   = parseFloat(document.getElementById('calcA_tp2').value)||1.5;
   const isLong = true; // 시나리오 A = 롱
   const f = fee * 2;
-  const tp1p = isLong ? entry*(1+tp1/lev/100-f) : entry*(1-tp1/lev/100+f);
-  const tp2p = isLong ? entry*(1+tp2/lev/100-f) : entry*(1-tp2/lev/100+f);
-  const slp  = isLong ? entry*(1-sl/lev/100)    : entry*(1+sl/lev/100);
+  const tp1p = isLong ? entry*(1+tp1/lev/100+f) : entry*(1-tp1/lev/100-f);
+  const tp2p = isLong ? entry*(1+tp2/lev/100+f) : entry*(1-tp2/lev/100-f);
+  const slp  = isLong ? entry*(1-sl/lev/100+f)  : entry*(1+sl/lev/100-f);
   const liq  = isLong ? entry*(1-1/lev)          : entry*(1+1/lev);
   const rr1  = Math.abs(tp1p-entry)/Math.abs(slp-entry);
   const rr2  = Math.abs(tp2p-entry)/Math.abs(slp-entry);
@@ -2005,9 +2007,9 @@ function runCalcB() {
   const tp2   = parseFloat(document.getElementById('calcB_tp2').value)||1.5;
   const isLong = false; // 시나리오 B = 숏
   const f = fee * 2;
-  const tp1p = isLong ? entry*(1+tp1/lev/100-f) : entry*(1-tp1/lev/100+f);
-  const tp2p = isLong ? entry*(1+tp2/lev/100-f) : entry*(1-tp2/lev/100+f);
-  const slp  = isLong ? entry*(1-sl/lev/100)    : entry*(1+sl/lev/100);
+  const tp1p = isLong ? entry*(1+tp1/lev/100+f) : entry*(1-tp1/lev/100-f);
+  const tp2p = isLong ? entry*(1+tp2/lev/100+f) : entry*(1-tp2/lev/100-f);
+  const slp  = isLong ? entry*(1-sl/lev/100+f)  : entry*(1+sl/lev/100-f);
   const liq  = isLong ? entry*(1-1/lev)          : entry*(1+1/lev);
   const rr1  = Math.abs(tp1p-entry)/Math.abs(slp-entry);
   const rr2  = Math.abs(tp2p-entry)/Math.abs(slp-entry);
