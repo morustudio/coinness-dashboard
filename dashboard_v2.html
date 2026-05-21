@@ -1789,11 +1789,13 @@ B점수/(A+B점수)×100 = 시나리오 B 확률
 - 숏 청산 60% 이상 우세 → A +${scoreWeights.liq}점
 - 롱/숏 50%대 혼조 → A/B 각 +${Math.round(scoreWeights.liq/2)}점
 - 롱 청산 60% 이상 우세 → B +${scoreWeights.liq}점
+- 보조(오더북): 매수벽 > 매도벽(BTC) → A 방향 보강 / 매도벽 > 매수벽 → B 방향 보강
 
 [바이낸스 펀딩비] 만점: ${scoreWeights.fund}점
 - 0% 이하로 수렴 또는 음수 → A +${scoreWeights.fund}점
 - 0% ~ +0.003% 중립 → A/B 각 +${Math.round(scoreWeights.fund/2)}점
 - +0.004% 이상 양수 → B +${scoreWeights.fund}점
+- 보조(변화속도): 양수 방향 가속 → B 방향 보강 (정산 전 롱 부담↑) / 음수 방향 가속 → A 방향 보강 / 수렴 → 현재 방향 유지
 
 [김치프리미엄] 만점: ${scoreWeights.kimchi}점
 - +0.5% 이상 양프 → A +${scoreWeights.kimchi}점
@@ -1804,6 +1806,7 @@ B점수/(A+B점수)×100 = 시나리오 B 확률
 - 직전 3시점 대비 가격 상승 유지 → A +${scoreWeights.trend}점
 - 횡보 ($200 이내) → A/B 각 +${Math.round(scoreWeights.trend/2)}점
 - 직전 3시점 대비 가격 하락 유지 → B +${scoreWeights.trend}점
+- 보조(테이커): 매수 55%↑ → A 방향 보강 / 매수 45%↓ → B 방향 보강 / 45~55% → 중립
 
 ### 조건 충족 아이콘 기준
 ✓ 충족: 해당 조건 수치 기준 완전 충족
