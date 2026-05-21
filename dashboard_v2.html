@@ -388,7 +388,7 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 <header>
   <div class="dot"></div>
   <h1>코인니스 선물 지표</h1>
-  <span class="badge">v2.007</span>
+  <span class="badge">v2.009</span>
   <span class="pc-only">펀딩피 기준 + 시간대별 수집</span>
   <div class="header-right">
     <!-- 실시간 BTC -->
@@ -949,7 +949,21 @@ function initFilters() {
   seSel.innerHTML = sessions.map(s=>`<option>${s}</option>`).join('');
   tiSel.innerHTML = timings.map(t=>`<option>${t}</option>`).join('');
   seSel.selectedIndex = seSel.options.length - 1;
-  seSel.onchange = tiSel.onchange = () => { render(); };
+
+  // 최근 데이터의 타이밍 자동 선택
+  const latestRow = [...allData].sort((a,b)=>(b['수집시간']||'').localeCompare(a['수집시간']||''))[0];
+  if (latestRow && latestRow['타이밍']) tiSel.value = latestRow['타이밍'];
+
+  seSel.onchange = () => { render(); };
+  tiSel.onchange = () => {
+    if (tiSel.value === '일반') {
+      currentTf = '1시간';
+      document.querySelectorAll('#tfBtns .btn').forEach(b =>
+        b.classList.toggle('active', b.textContent.trim() === '1시간')
+      );
+    }
+    render();
+  };
 }
 
 function setTf(tf) {
@@ -1286,6 +1300,12 @@ function getRow() {
   const date    = key.slice(0,5);
   const session = key.slice(6);
 
+  // 일반 타이밍: 정산회차가 "-"이므로 세션 무관, 가장 최근 일반 1시간 행 반환
+  if (timing === '일반') {
+    const sorted = [...allData].sort((a,b)=>(b['수집시간']||'').localeCompare(a['수집시간']||''));
+    return sorted.find(d => d['타이밍']==='일반' && (d['시간대']||'1시간')==='1시간') || null;
+  }
+
   // 1시간은 선택한 정산회차+타이밍 그대로 찾기
   if (currentTf === '1시간') {
     return allData.find(d => {
@@ -1390,11 +1410,18 @@ function render() {
 }
 
 function renderStat(row) {
+  const takerRaw = parseFloat(row['테이커_매수비율']) || null;
+  const takerHtml = takerRaw !== null ? (() => {
+    const sell = (100 - takerRaw).toFixed(1);
+    const color = takerRaw >= 55 ? '#22c55e' : takerRaw <= 45 ? '#f04444' : 'var(--text2)';
+    return `<div class="stat-card"><div class="stat-l">테이커 매수/매도</div><div class="stat-v" style="font-size:13px;color:${color}">${takerRaw}% / ${sell}%</div></div>`;
+  })() : '';
   document.getElementById('statRow').innerHTML = `
     <div class="stat-card"><div class="stat-l">수집 시간</div><div class="stat-v mono" style="font-size:13px">${row['수집시간']||'-'}</div></div>
     <div class="stat-card"><div class="stat-l">정산회차</div><div class="stat-v">${row['정산회차']||'-'}</div></div>
     <div class="stat-card"><div class="stat-l">타이밍</div><div class="stat-v" style="font-size:13px;padding-top:3px">${timingBadge(row['타이밍']||'')}</div></div>
     <div class="stat-card"><div class="stat-l">BTC 수집시간가격</div><div class="stat-v" style="font-size:14px">${formatPrice(parseBtcPrice(row['BTC_현재가']))}<br><span style="font-size:10px;color:var(--text3);font-family:'Noto Sans KR',sans-serif;">수집: ${(row['수집시간']||'').slice(5)}</span></div></div>
+    ${takerHtml}
   `;
 }
 
@@ -1665,6 +1692,15 @@ async function copyPrompt() {
     return `[${t}]${tf} BTC:${r['BTC_현재가']||'-'} | 펀딩(바이낸스:${r['펀딩_바이낸스']||'-'} OKX:${r['펀딩_OKX']||'-'} 바이비트:${r['펀딩_바이비트']||'-'}) | 청산비율:${r['청산비율']||'-'} | 청산금액:${r['청산금액']||'-'} | OI:${r['미결제_BTC']||'-'} | 롱숏:${r['롱숏_롱']||'-'}/${r['롱숏_숏']||'-'} | 김프:${r['김치프리미엄']||'-'} | 타이밍:${r['타이밍']||'-'}`;
   }).join('\n');
   const latest=recent[recent.length-1];
+  // 펀딩비 변화 속도: 최근 3시점 (1시간 기준)
+  const fundHist = [...allData]
+    .filter(d => (d['시간대']||'1시간')==='1시간' && d['펀딩_바이낸스'])
+    .sort((a,b)=>(a['수집시간']||'').localeCompare(b['수집시간']||''))
+    .slice(-3);
+  const fundVelocity = fundHist.length >= 2
+    ? fundHist.map(d=>`${(d['수집시간']||'').slice(8,13)} ${d['펀딩_바이낸스']}`).join(' → ')
+    : null;
+
   const vals=[parsePct(latest['펀딩_바이낸스']),parsePct(latest['펀딩_OKX']),parsePct(latest['펀딩_바이비트'])].filter(v=>v!==null);
   const gap=vals.length>=2?+(Math.max(...vals)-Math.min(...vals)).toFixed(4):0;
   const bnF=parsePct(latest['펀딩_바이낸스']), liqR=latest['청산비율']||'', liqPct=parseFloat(liqR)||0, isLong=liqR.includes('롱');
@@ -1713,6 +1749,17 @@ ${rtDiff !== null ? `- 수집 후 가격 변화: ${rtDiff >= 0 ? '▲ +' : '▼ 
 - 롱숏 비율: ${latest['롱숏_롱']||'-'} / ${latest['롱숏_숏']||'-'} ※ 수집 시점 기준
 - 김치프리미엄: ${latest['김치프리미엄']||'-'} (업비트 ${latest['업비트_KRW']||'-'}원, 환율 ${latest['달러환율']||'-'})
 - 타이밍: ${latest['타이밍']||'-'}
+
+## 추가 수집 데이터
+### 펀딩비 변화 속도 (바이낸스, 최근 3시점)
+${fundVelocity ? fundVelocity : '데이터 부족 (수집 시점 2개 미만)'}
+
+### 테이커 매수/매도 비율 (5분 기준)
+${latest['테이커_매수비율'] ? `- 테이커 매수: ${latest['테이커_매수비율']} / 매도: ${(100-parseFloat(latest['테이커_매수비율'])).toFixed(1)}%` : '- 데이터 없음 (v2.003 이후 수집분부터 제공)'}
+
+### 오더북 주요 벽 (바이낸스 선물, 상위 500호가 집계)
+- 매수벽(지지): ${latest['매수벽_1가격'] ? `${latest['매수벽_1가격']} ${latest['매수벽_1BTC']}` : '데이터 없음 (v2.003 이후 수집분부터 제공)'}
+- 매도벽(저항): ${latest['매도벽_1가격'] ? `${latest['매도벽_1가격']} ${latest['매도벽_1BTC']}` : '데이터 없음 (v2.003 이후 수집분부터 제공)'}
 
 ## 규칙 기반 감지 신호
 ${signals.length?signals.join('\n'):'⚪ 특이 신호 없음'}
@@ -1784,6 +1831,22 @@ B점수/(A+B점수)×100 = 시나리오 B 확률
 0% ~ +0.5% → 중립
 -0.3% ~ 0% → 약한 역프, 주의
 -0.3% 이하 → 역프 심화, 하락 압력
+
+### 펀딩비 변화 속도 해석
+속도 상승 (매 시점 +0.001%p 이상 증가) → 지급 전 롱 청산 압력 강해짐, 단기 눌림 후 반등 가능
+속도 수렴/하락 → 지급 후 방향 전환 신호 약함, 추세 유지 가능성
+음수 방향 가속 → 숏 청산 압력 강해짐, 지급 후 급등 가능성
+
+### 테이커 비율 해석
+매수 55% 이상 → 공격적 매수세, 펀딩 지급 후 반등 가능성 높음
+매수 45% 이하 → 공격적 매도세, 추가 하락 압력
+45%~55% → 중립, 방향 불명확
+
+### 오더북 벽 해석
+매수벽이 현재가 근처 아래 → 단기 지지 존재, 하락 속도 둔화 예상
+매도벽이 현재가 근처 위 → 단기 저항 존재, 상승 모멘텀 소진 위험
+매수벽 > 매도벽 (BTC 기준) → 매수 압력 우세, 반등 유리
+매도벽 > 매수벽 (BTC 기준) → 매도 압력 우세, 하락 압력
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ## 분석 요청

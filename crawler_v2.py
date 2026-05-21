@@ -3,8 +3,9 @@
 # v2.0   : 최초 작성 (시간대 4행 → 1행, 21회/일)
 # v2.1   : 정산 기준 시각 4개 시간대 수집 추가, 항목별 재시도
 # v2.002 : 김치프리미엄 수집 추가 (업비트 KRW + 환율 API)
+# v2.003 : 테이커 매수비율 + 청산 밀집 구간 수집 추가 (바이낸스 공개 API)
 # ──────────────────────────────────────────────────────────
-VERSION = "v2.002"
+VERSION = "v2.003"
 
 import os
 import time
@@ -327,6 +328,62 @@ def parse_kimchi_premium() -> dict:
     return result
 
 
+# ── 파서 7: 테이커 매수/매도 비율 ────────────────────────────
+def parse_taker_ratio() -> dict:
+    try:
+        with urllib.request.urlopen(
+            "https://fapi.binance.com/futures/data/takerlongshortRatio"
+            "?symbol=BTCUSDT&period=5m&limit=1", timeout=10
+        ) as res:
+            data = json.loads(res.read())
+            if data:
+                buy_vol  = float(data[0]["buyVol"])
+                sell_vol = float(data[0]["sellVol"])
+                total    = buy_vol + sell_vol
+                if total > 0:
+                    buy_pct = round(buy_vol / total * 100, 1)
+                    log.info(f"  [테이커] 매수={buy_pct}%")
+                    return {"테이커_매수비율": f"{buy_pct}%"}
+    except Exception as e:
+        log.error(f"  [테이커] 오류: {e}")
+    return {}
+
+
+# ── 파서 8: 오더북 매수/매도벽 ──────────────────────────────
+def parse_orderbook_walls() -> dict:
+    try:
+        with urllib.request.urlopen(
+            "https://fapi.binance.com/fapi/v1/depth?symbol=BTCUSDT&limit=500", timeout=10
+        ) as res:
+            data = json.loads(res.read())
+
+        def find_walls(orders, bucket=500):
+            buckets = {}
+            for price_str, qty_str in orders:
+                price = float(price_str)
+                qty   = float(qty_str)
+                key   = round(price / bucket) * bucket
+                buckets[key] = buckets.get(key, 0) + qty
+            top = sorted(buckets.items(), key=lambda x: -x[1])[:1]
+            return [(f"${int(p):,}", f"{round(q, 1)}BTC") for p, q in top]
+
+        bid_walls = find_walls(data.get("bids", []))
+        ask_walls = find_walls(data.get("asks", []))
+
+        result = {}
+        if bid_walls:
+            result["매수벽_1가격"] = bid_walls[0][0]
+            result["매수벽_1BTC"]  = bid_walls[0][1]
+        if ask_walls:
+            result["매도벽_1가격"] = ask_walls[0][0]
+            result["매도벽_1BTC"]  = ask_walls[0][1]
+        log.info(f"  [오더북] 매수벽={bid_walls} 매도벽={ask_walls}")
+        return result
+    except Exception as e:
+        log.error(f"  [오더북] 오류: {e}")
+    return {}
+
+
 # ── 검증 ───────────────────────────────────────────────────
 def validate(row: dict) -> list:
     return [f for f in REQUIRED_FIELDS if not row.get(f)]
@@ -432,6 +489,39 @@ def run_collection() -> None:
                 log.error("  [김프] 최종 실패")
                 kimchi_data = {"업비트_KRW": None, "달러환율": None, "김치프리미엄": None}
 
+            # ── 테이커 비율 (API, 드라이버 불필요) ────────
+            log.info("[7] 테이커 매수비율 수집")
+            taker_data = {}
+            for i in range(ITEM_RETRIES + 1):
+                taker_data = parse_taker_ratio()
+                if taker_data.get("테이커_매수비율"):
+                    break
+                if i < ITEM_RETRIES:
+                    log.warning(f"  [테이커] 재시도 {i+1}/{ITEM_RETRIES}")
+                    time.sleep(ITEM_DELAY)
+            if not taker_data.get("테이커_매수비율"):
+                log.error("  [테이커] 최종 실패")
+                taker_data = {"테이커_매수비율": None}
+
+            # ── 오더북 매수/매도벽 (API, 드라이버 불필요) ──
+            log.info("[8] 오더북 매수/매도벽 수집")
+            ob_data = {}
+            for i in range(ITEM_RETRIES + 1):
+                ob_data = parse_orderbook_walls()
+                if ob_data.get("매수벽_1가격"):
+                    break
+                if i < ITEM_RETRIES:
+                    log.warning(f"  [오더북] 재시도 {i+1}/{ITEM_RETRIES}")
+                    time.sleep(ITEM_DELAY)
+            if not ob_data.get("매수벽_1가격"):
+                log.error("  [오더북] 최종 실패")
+                ob_data = {
+                    "매수벽_1가격": None, "매수벽_1BTC": None,
+                    "매수벽_2가격": None, "매수벽_2BTC": None,
+                    "매도벽_1가격": None, "매도벽_1BTC": None,
+                    "매도벽_2가격": None, "매도벽_2BTC": None,
+                }
+
             # ── 행 조합 ──────────────────────────────────
             rows = []
             for tf in time_frames:
@@ -458,6 +548,15 @@ def run_collection() -> None:
                     "업비트_KRW":   kimchi_data.get("업비트_KRW"),
                     "달러환율":     kimchi_data.get("달러환율"),
                     "김치프리미엄":  kimchi_data.get("김치프리미엄"),
+                    "테이커_매수비율": taker_data.get("테이커_매수비율"),
+                    "매수벽_1가격":  ob_data.get("매수벽_1가격"),
+                    "매수벽_1BTC":   ob_data.get("매수벽_1BTC"),
+                    "매수벽_2가격":  ob_data.get("매수벽_2가격"),
+                    "매수벽_2BTC":   ob_data.get("매수벽_2BTC"),
+                    "매도벽_1가격":  ob_data.get("매도벽_1가격"),
+                    "매도벽_1BTC":   ob_data.get("매도벽_1BTC"),
+                    "매도벽_2가격":  ob_data.get("매도벽_2가격"),
+                    "매도벽_2BTC":   ob_data.get("매도벽_2BTC"),
                 }
                 rows.append(row)
 
