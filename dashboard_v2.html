@@ -1332,15 +1332,10 @@ function getRowsAllTf() {
   const date    = key.slice(0,5);
   const session = key.slice(6);
   const tfs     = ['1시간','4시간','12시간','24시간'];
-
-  if (timing === '일반') {
-    const sorted = [...allData].sort((a,b)=>(b['수집시간']||'').localeCompare(a['수집시간']||''));
-    const row = sorted.find(d => d['타이밍']==='일반' && (d['시간대']||'1시간')==='1시간') || null;
-    return row ? [{tf:'1시간', row}] : [];
-  }
+  const sorted  = [...allData].sort((a,b)=>(b['수집시간']||'').localeCompare(a['수집시간']||''));
 
   if (timing === '정산_기준') {
-    const sorted = [...allData].sort((a,b)=>(b['수집시간']||'').localeCompare(a['수집시간']||''));
+    // 선택한 세션의 정산_기준 4개 행, 없으면 가장 최근 정산_기준 fallback
     return tfs.map(tf => {
       let row = allData.find(d => {
         const dDate = (d['수집시간']||'').slice(5,10);
@@ -1351,12 +1346,11 @@ function getRowsAllTf() {
     }).filter(Boolean);
   }
 
-  // 기타 타이밍: 1시간만 존재
-  const row = allData.find(d => {
-    const dDate = (d['수집시간']||'').slice(5,10);
-    return dDate===date && d['정산회차']===session && d['타이밍']===timing && (d['시간대']||'1시간')==='1시간';
-  });
-  return row ? [{tf:'1시간', row}] : [];
+  // 그 외 타이밍(일반 포함): 가장 최근 정산_기준의 4개 시간대 표시
+  return tfs.map(tf => {
+    const row = sorted.find(d => d['타이밍']==='정산_기준' && (d['시간대']||'1시간')===tf) || null;
+    return row ? {tf, row} : null;
+  }).filter(Boolean);
 }
 
 // ── 기간 필터 ─────────────────────────────────────────────
