@@ -1698,7 +1698,7 @@ async function copyPrompt() {
     .sort((a,b)=>(a['수집시간']||'').localeCompare(b['수집시간']||''))
     .slice(-3);
   const fundVelocity = fundHist.length >= 2
-    ? fundHist.map(d=>`${(d['수집시간']||'').slice(8,13)} ${d['펀딩_바이낸스']}`).join(' → ')
+    ? fundHist.map(d=>`${(d['수집시간']||'').slice(5,16)} ${d['펀딩_바이낸스']}`).join(' → ')
     : null;
 
   const vals=[parsePct(latest['펀딩_바이낸스']),parsePct(latest['펀딩_OKX']),parsePct(latest['펀딩_바이비트'])].filter(v=>v!==null);
