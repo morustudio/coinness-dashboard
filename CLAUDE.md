@@ -152,6 +152,7 @@ py crawler_v2.py          # 스케줄러 가동
 - PC 절전모드 해제 필수
 - GitHub 직접 수정 후 반드시 `git pull` 실행
 - `crawler_v2.log`는 .gitignore 처리 (로컬만 보관)
+- **버전 업 시 `dashboard_v2.html:391` 배지도 반드시 함께 수정** — `<span class="badge">v2.XXX</span>`
 
 ---
 
